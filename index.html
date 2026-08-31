@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#f2ede3">
+<title>Webデモ — 音声技術今昔物語</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=Noto+Serif+JP:wght@600;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#f2ede3;
+    --panel:#fbf8f2;
+    --ink:#182a38;
+    --ink-soft:#4a5763;
+    --hair:#cfc4b1;
+    --hair-strong:#a9997d;
+    --e1:#a9531f;
+    --e2:#b57f2b;
+    --e3:#7c7a3c;
+    --e4:#2f8172;
+    --e5:#22708a;
+    --serif:'Noto Serif JP',serif;
+    --sans:'Noto Sans JP','Hiragino Kaku Gothic ProN','Yu Gothic',sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html{-webkit-text-size-adjust:100%;}
+  body{
+    margin:0;
+    font-family:var(--sans);
+    color:var(--ink);
+    line-height:1.6;
+    background:
+      radial-gradient(80vw 42vh at 90% -5%, rgba(44,85,144,.07), transparent 60%),
+      radial-gradient(75vw 38vh at 5% 2%, rgba(169,83,31,.07), transparent 60%),
+      var(--paper);
+    background-attachment:fixed;
+  }
+  body::before{
+    content:"";
+    position:fixed;
+    inset:0;
+    z-index:-1;
+    pointer-events:none;
+    background-image:linear-gradient(rgba(24,42,56,.03) 1px,transparent 1px);
+    background-size:100% 26px;
+    opacity:.5;
+  }
+  .wrap{max-width:720px;margin:0 auto;padding:22px 16px 44px;}
+  .eyebrow{
+    margin:0 0 7px;
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:.18em;
+    color:var(--ink-soft);
+  }
+  h1{
+    margin:0;
+    font-family:var(--serif);
+    font-size:clamp(30px,8vw,46px);
+    line-height:1.08;
+    font-weight:900;
+    letter-spacing:.01em;
+  }
+  .en{
+    margin:5px 0 0;
+    color:var(--ink-soft);
+    font-family:var(--serif);
+    font-size:14px;
+    font-style:italic;
+  }
+  .lead{
+    margin:18px 0 0;
+    padding-top:14px;
+    border-top:1px solid var(--hair);
+    font-size:14px;
+  }
+  .section-title{
+    display:flex;
+    align-items:baseline;
+    gap:10px;
+    margin:26px 0 10px;
+  }
+  .section-title h2{
+    margin:0;
+    font-family:var(--serif);
+    font-size:20px;
+  }
+  .section-title span{font-size:11px;color:var(--ink-soft);letter-spacing:.12em;}
+  .demos{display:flex;flex-direction:column;gap:12px;}
+  .demo{
+    --accent:var(--e2);
+    display:block;
+    position:relative;
+    overflow:hidden;
+    padding:17px 17px 15px;
+    color:var(--ink);
+    text-decoration:none;
+    background:var(--panel);
+    border:1px solid var(--hair);
+    border-radius:15px;
+    box-shadow:0 7px 22px rgba(24,42,56,.05);
+    transition:transform .12s, box-shadow .12s, border-color .12s;
+  }
+  .demo::before{
+    content:"";
+    position:absolute;
+    left:0; top:0; bottom:0;
+    width:5px;
+    background:var(--accent);
+  }
+  .demo:active{transform:translateY(1px);}
+  @media (hover:hover){
+    .demo:hover{
+      transform:translateY(-2px);
+      box-shadow:0 10px 26px rgba(24,42,56,.09);
+      border-color:var(--hair-strong);
+    }
+  }
+  .demo.d1{--accent:var(--e2);}
+  .demo.d2{--accent:var(--e3);}
+  .demo.d3{--accent:var(--e4);}
+  .topline{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .name{
+    display:flex;
+    align-items:baseline;
+    gap:8px;
+    min-width:0;
+  }
+  .num{
+    flex:none;
+    color:var(--accent);
+    font-family:var(--serif);
+    font-size:25px;
+    font-weight:900;
+    line-height:1;
+  }
+  .name h3{
+    margin:0;
+    font-family:var(--serif);
+    font-size:19px;
+    line-height:1.25;
+  }
+  .arrow{
+    flex:none;
+    color:var(--accent);
+    font-size:24px;
+    font-weight:700;
+  }
+  .period{
+    margin:7px 0 0 33px;
+    font-size:11px;
+    font-weight:700;
+    color:var(--accent);
+    letter-spacing:.05em;
+  }
+  .desc{
+    margin:4px 0 0 33px;
+    font-size:13px;
+    color:var(--ink-soft);
+  }
+  .badges{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+    margin:10px 0 0 33px;
+  }
+  .badge{
+    padding:3px 8px;
+    border-radius:999px;
+    border:1px solid var(--hair);
+    background:#fff;
+    color:var(--ink-soft);
+    font-size:10.5px;
+    font-weight:700;
+  }
+  .note{
+    margin-top:18px;
+    padding:11px 12px;
+    border:1px dashed var(--hair-strong);
+    border-radius:11px;
+    background:rgba(169,153,125,.10);
+    color:var(--ink-soft);
+    font-size:12px;
+  }
+  .note b{color:var(--ink);}
+  .foot{
+    margin-top:25px;
+    padding-top:14px;
+    border-top:1px solid var(--hair);
+    text-align:center;
+    color:var(--ink-soft);
+    font-size:11.5px;
+  }
+  .foot strong{
+    display:block;
+    color:var(--ink);
+    font-family:var(--serif);
+    font-size:13px;
+    margin-bottom:2px;
+  }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header>
+    <p class="eyebrow">日本音響学会 創立90周年記念 · WEB DEMOS</p>
+    <h1>音声技術今昔物語</h1>
+    <p class="en">Speech Technology Then and Now</p>
+    <p class="lead">
+      発声器官を「管」として作るところから、声から声道を推定し、
+      時系列を照合して言葉を認識するところまで。
+      ポスターに登場する古典的な音声技術を、スマートフォンのブラウザで体験できます。
+    </p>
+  </header>
+
+  <div class="section-title">
+    <h2>デモを選ぶ</h2>
+    <span>TRY A DEMO</span>
+  </div>
+
+  <nav class="demos" aria-label="音声技術デモ一覧">
+    <a class="demo d1" href="./tube.html">
+      <div class="topline">
+        <div class="name">
+          <span class="num">①</span>
+          <h3>連結音響管シンセ</h3>
+        </div>
+        <span class="arrow" aria-hidden="true">›</span>
+      </div>
+      <p class="period">KELLY–LOCHBAUM / PARCOR</p>
+      <p class="desc">声道の管の太さを指で変え、共鳴と声の変化を聞いてみる。</p>
+      <div class="badges">
+        <span class="badge">音を出す</span>
+        <span class="badge">マイク不要</span>
+      </div>
+    </a>
+
+    <a class="demo d2" href="./lpc.html">
+      <div class="topline">
+        <div class="name">
+          <span class="num">②</span>
+          <h3>自分の声から声道モデル</h3>
+        </div>
+        <span class="arrow" aria-hidden="true">›</span>
+      </div>
+      <p class="period">LPC / PARCOR</p>
+      <p class="desc">母音を録音し、反射係数と声道形状を推定して再合成する。</p>
+      <div class="badges">
+        <span class="badge">マイク使用</span>
+        <span class="badge">端末内で処理</span>
+      </div>
+    </a>
+
+    <a class="demo d3" href="./dtw.html">
+      <div class="topline">
+        <div class="name">
+          <span class="num">③</span>
+          <h3>DTWで音声認識</h3>
+        </div>
+        <span class="arrow" aria-hidden="true">›</span>
+      </div>
+      <p class="period">DYNAMIC TIME WARPING</p>
+      <p class="desc">自分で単語テンプレートを登録し、時間伸縮を許して音声認識する。</p>
+      <div class="badges">
+        <span class="badge">マイク使用</span>
+        <span class="badge">話者依存認識</span>
+      </div>
+    </a>
+  </nav>
+
+  <aside class="note">
+    <b>スマートフォンでの利用：</b>
+    ②・③はマイクの使用許可が必要です。録音・分析はブラウザ内で行われます。
+    GitHub Pages は HTTPS で公開できるため、マイクを使う Web Audio デモの公開先として利用できます。
+  </aside>
+
+  <footer class="foot">
+    <strong>ボコーダーから大規模モデルまで</strong>
+    篠崎 隆宏（東京科学大学）・大谷 大和（情報通信研究機構）<br>
+    日本音響学会 創立90周年記念 スペシャルセッション
+  </footer>
+</main>
+</body>
+</html>

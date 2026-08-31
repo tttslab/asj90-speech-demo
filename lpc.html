@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>② 自分の声から声道モデル — 音声技術今昔物語</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=Noto+Serif+JP:wght@600;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#f2ede3; --panel:#fbf8f2; --ink:#182a38; --ink-soft:#4a5763;
+    --hair:#cfc4b1; --hair-strong:#a9997d;
+    --e1:#a9531f; --e2:#b57f2b; --e3:#7c7a3c; --e4:#2f8172; --e5:#22708a; --e6:#2c5590;
+    --accent:#7c7a3c;
+    --serif:'Noto Serif JP',serif;
+    --sans:'Noto Sans JP','Hiragino Kaku Gothic ProN','Yu Gothic',sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html{-webkit-text-size-adjust:100%;}
+  body{margin:0;font-family:var(--sans);color:var(--ink);line-height:1.55;
+    background:
+      radial-gradient(80vw 40vh at 90% -5%, rgba(44,85,144,.06), transparent 60%),
+      radial-gradient(80vw 40vh at 5% 2%, rgba(169,83,31,.06), transparent 60%),
+      var(--paper); background-attachment:fixed;}
+  .wrap{max-width:680px;margin:0 auto;padding:16px 16px 40px;}
+  body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+    background-image:linear-gradient(rgba(24,42,56,.03) 1px,transparent 1px);
+    background-size:100% 26px;opacity:.5;}
+  a.back{display:inline-block;font-size:13px;font-weight:700;color:var(--e5);text-decoration:none;margin-bottom:8px;}
+  .eyebrow{font-size:11px;font-weight:700;letter-spacing:.2em;color:var(--ink-soft);text-transform:uppercase;margin:0 0 4px;}
+  h1{font-family:var(--serif);font-weight:900;font-size:clamp(23px,6vw,32px);margin:0;line-height:1.1;}
+  h1 .n{color:var(--accent);}
+  .sub{font-family:var(--serif);font-style:italic;color:var(--ink-soft);font-size:14px;margin:6px 0 0;}
+
+  .card{background:var(--panel);border:1px solid var(--hair);border-radius:14px;
+    padding:14px;margin-top:16px;box-shadow:0 6px 20px rgba(24,42,56,.05);}
+  .card h2{font-family:var(--serif);font-size:15px;margin:0 0 10px;font-weight:700;
+    display:flex;align-items:center;gap:8px;}
+  .card h2 small{font-weight:400;font-family:var(--sans);font-size:12px;color:var(--ink-soft);}
+  canvas{display:block;width:100%;height:150px;border-radius:8px;background:#fff;border:1px solid var(--hair);}
+
+  .rec{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;
+    font-weight:700;font-size:18px;color:#fff;background:#b0342b;border:none;border-radius:12px;
+    padding:16px;min-height:58px;cursor:pointer;transition:filter .12s;}
+  .rec.recording{background:#7a1f19;animation:pulse 1s infinite;}
+  @keyframes pulse{50%{filter:brightness(1.25);}}
+  .rec:disabled{opacity:.5;}
+  .hint{font-size:13px;color:var(--ink-soft);text-align:center;margin:8px 0 0;}
+  .status{font-size:13px;text-align:center;margin-top:8px;min-height:18px;font-weight:700;}
+  .meta{display:flex;gap:16px;justify-content:center;font-size:13px;color:var(--ink-soft);margin-top:6px;flex-wrap:wrap;}
+  .meta b{color:var(--ink);}
+
+  .playrow{display:flex;gap:10px;margin-top:12px;}
+  .pbtn{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;font-weight:700;font-size:15px;
+    color:#fff;border:none;border-radius:11px;padding:13px;min-height:50px;cursor:pointer;transition:filter .12s;}
+  .pbtn.orig{background:var(--ink-soft);} .pbtn.re{background:var(--accent);}
+  .pbtn:disabled{opacity:.4;} .pbtn:active{filter:brightness(.92);}
+
+  .row{display:flex;align-items:center;gap:12px;margin:12px 0 2px;flex-wrap:wrap;}
+  .row label{font-size:13px;font-weight:700;min-width:96px;}
+  input[type=range].h{flex:1;min-width:140px;accent-color:var(--accent);height:28px;}
+  .val{font-variant-numeric:tabular-nums;font-size:13px;color:var(--ink-soft);min-width:44px;text-align:right;}
+
+  .parcor{display:flex;justify-content:space-around;gap:2px;margin-top:12px;}
+  .pc{flex:1;text-align:center;min-width:0;}
+  .pcbar{height:40px;position:relative;}
+  .pcbar .zero{position:absolute;left:0;right:0;top:50%;height:1px;background:var(--hair);}
+  .pcbar i{display:block;width:70%;margin:0 auto;border-radius:2px;position:relative;}
+  .pc .k{font-size:9px;color:var(--ink-soft);}
+
+  .note{font-size:12px;color:var(--ink-soft);background:rgba(169,153,125,.1);border:1px dashed var(--hair-strong);
+    border-radius:10px;padding:9px 11px;margin-top:12px;}
+  .foot{margin-top:22px;font-size:12px;color:var(--ink-soft);text-align:center;}
+  .legend{display:flex;gap:14px;font-size:11px;color:var(--ink-soft);margin-top:6px;justify-content:flex-end;}
+  .legend span{display:flex;align-items:center;gap:5px;}
+  .legend i{width:14px;height:3px;border-radius:2px;display:inline-block;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="./index.html">← デモ一覧</a>
+  <p class="eyebrow">音声技術今昔物語 · LPC / PARCOR の時代</p>
+  <h1><span class="n">②</span> 自分の声から声道モデル</h1>
+  <p class="sub">声を録音 → LPCで反射係数（PARCOR）を推定 → 同じ管モデルで再合成。</p>
+
+  <!-- record -->
+  <div class="card">
+    <button class="rec" id="rec">● 録音（母音を約1秒）</button>
+    <p class="hint">マイクに向かって「あー」「いー」「うー」と伸ばして発声してください。</p>
+    <div class="status" id="status"></div>
+    <div class="meta" id="meta"></div>
+    <div class="playrow">
+      <button class="pbtn orig" id="playOrig" disabled>▶ 元の声</button>
+      <button class="pbtn re" id="playRe" disabled>▶ 再合成（PARCOR→管）</button>
+    </div>
+    <div class="row">
+      <label>LPC次数 p</label>
+      <input type="range" class="h" id="order" min="8" max="20" step="1" value="14">
+      <span class="val" id="orderv">14</span>
+    </div>
+  </div>
+
+  <!-- estimated tract -->
+  <div class="card">
+    <h2>推定された声道の形 <small>あなたの声から立ち上がった断面積関数（声門→唇）</small></h2>
+    <canvas id="tube"></canvas>
+    <div class="parcor" id="parcor"></div>
+  </div>
+
+  <!-- spectrum -->
+  <div class="card">
+    <h2>スペクトルとLPC包絡 <small>声のスペクトルに反射係数モデルが当てはまる</small></h2>
+    <canvas id="spec"></canvas>
+    <div class="legend"><span><i style="background:#a9997d"></i>声のスペクトル</span><span><i style="background:#2f8172"></i>LPC包絡</span><span><i style="background:#a9531f"></i>フォルマント</span></div>
+  </div>
+
+  <div class="note">録音・分析・再合成はすべてお使いの端末のブラウザ内（JavaScript）で行われ、音声はどこにも送信されません。マイクの使用にはブラウザの許可が必要です（HTTPSのページで動作）。iPhoneでは最初のタップで音とマイクが有効になります。</div>
+  <p class="foot">篠崎 隆宏（東京科学大学）・大谷 大和（情報通信研究機構）／ 日本音響学会 創立90周年記念</p>
+</div>
+
+<script>
+// ================= DSP (validated) =================
+function rosenberg(ph){const Tp=0.4,Tn=0.16;
+  if(ph<Tp)return 0.5*(1-Math.cos(Math.PI*ph/Tp));
+  if(ph<Tp+Tn)return Math.cos(Math.PI*(ph-Tp)/(2*Tn));return 0;}
+function decimate(x,D){const N=Math.floor(x.length/D),y=new Float64Array(N);
+  for(let i=0;i<N;i++){let s=0;for(let d=0;d<D;d++)s+=x[i*D+d];y[i]=s/D;}return y;}
+function bestFrame(x,W){let best=0,bi=0;for(let i=0;i+W<x.length;i+=Math.floor(W/4)){let e=0;for(let n=0;n<W;n++)e+=x[i+n]*x[i+n];if(e>best){best=e;bi=i;}}return bi;}
+function analyze(x,fs,p){
+  const W=Math.min(x.length,Math.round(0.030*fs)); if(W<p+4) return null;
+  const st=bestFrame(x,W); const f=new Float64Array(W);
+  for(let n=0;n<W;n++){const pre=x[st+n]-0.97*(x[st+n-1]||0);const w=0.54-0.46*Math.cos(2*Math.PI*n/(W-1));f[n]=pre*w;}
+  const R=new Float64Array(p+1);
+  for(let l=0;l<=p;l++){let s=0;for(let n=l;n<W;n++)s+=f[n]*f[n-l];R[l]=s;}
+  R[0]=R[0]*1.0001+1e-9;
+  let E=R[0];const a=new Float64Array(p+1);a[0]=1;const K=new Float64Array(p+1);
+  for(let i=1;i<=p;i++){let acc=R[i];for(let j=1;j<i;j++)acc+=a[j]*R[i-j];
+    let k=-acc/E;K[i]=k;const ap=a.slice();a[i]=k;
+    for(let j=1;j<i;j++)a[j]=ap[j]+k*ap[i-j];E*=(1-k*k);if(E<=0)E=1e-9;}
+  // f0 + voicing on windowed non-preemph frame
+  const g2=new Float64Array(W);for(let n=0;n<W;n++){const w=0.54-0.46*Math.cos(2*Math.PI*n/(W-1));g2[n]=x[st+n]*w;}
+  let lomin=Math.floor(fs/350),lomax=Math.floor(fs/70),bl=0,bv=-1;
+  for(let l=lomin;l<=lomax;l++){let s=0;for(let n=l;n<W;n++)s+=g2[n]*g2[n-l];if(s>bv){bv=s;bl=l;}}
+  let e0=0;for(let n=0;n<W;n++)e0+=g2[n]*g2[n];
+  const voiced=bv/(e0+1e-9)>0.25; const f0=bl>0?fs/bl:120;
+  return {a:Array.from(a),K:Array.from(K.slice(1)),gain:Math.sqrt(Math.max(E,1e-9)),f0,voiced,p,frame:f,st,W,fs};
+}
+function envFromA(a,fs,NF){const p=a.length-1,mag=[];
+  for(let i=0;i<NF/2;i++){const w=Math.PI*i/(NF/2);let re=0,im=0;
+    for(let j=0;j<=p;j++){re+=a[j]*Math.cos(-w*j);im+=a[j]*Math.sin(-w*j);}
+    mag.push(1/Math.hypot(re,im));}return mag;}
+function synthK(K,fs,dur,f0,gain,voiced,src){
+  const p=K.length,N=Math.round(fs*dur),out=new Float32Array(N);
+  let b=new Float64Array(p+1),bn=new Float64Array(p+1),ph=0,de=0;const dph=f0/fs;
+  for(let n=0;n<N;n++){let u;
+    if(!voiced)u=(Math.random()*2-1);
+    else if(src==='impulse')u=(ph<dph)?1:0; else u=rosenberg(ph);
+    ph+=dph;if(ph>=1)ph-=1;u*=gain*6;
+    let f=u;for(let m=p;m>=1;m--){const kk=K[m-1],bm1=b[m-1];f=f-kk*bm1;bn[m]=kk*f+bm1;}bn[0]=f;
+    const t=b;b=bn;bn=t;de=f+0.97*de;out[n]=de;}
+  let pk=1e-9;for(let n=0;n<N;n++)pk=Math.max(pk,Math.abs(out[n]));
+  const g=0.9/pk,fd=Math.round(0.006*fs);
+  for(let n=0;n<N;n++){let a=1;if(n<fd)a=n/fd;else if(n>N-fd)a=(N-n)/fd;out[n]*=g*a;}
+  return out;
+}
+function areaFromK(K){let A=1;const As=[1];for(let m=0;m<K.length;m++){A*=(1-K[m])/(1+K[m]);As.push(Math.max(A,1e-4));}
+  const mx=Math.max(...As);return As.map(a=>Math.sqrt(a/mx));}
+function fft(re,im){const n=re.length;for(let i=1,j=0;i<n;i++){let bit=n>>1;for(;j&bit;bit>>=1)j^=bit;j^=bit;
+  if(i<j){const tr=re[i];re[i]=re[j];re[j]=tr;const ti=im[i];im[i]=im[j];im[j]=ti;}}
+  for(let len=2;len<=n;len<<=1){const ang=-2*Math.PI/len,wr=Math.cos(ang),wi=Math.sin(ang);
+    for(let i=0;i<n;i+=len){let cwr=1,cwi=0;for(let k=0;k<len/2;k++){const ur=re[i+k],ui=im[i+k];
+      const vr=re[i+k+len/2]*cwr-im[i+k+len/2]*cwi,vi=re[i+k+len/2]*cwi+im[i+k+len/2]*cwr;
+      re[i+k]=ur+vr;im[i+k]=ui+vi;re[i+k+len/2]=ur-vr;im[i+k+len/2]=ui-vi;
+      const nr=cwr*wr-cwi*wi;cwi=cwr*wi+cwi*wr;cwr=nr;}}}}
+
+// ================= state / audio =================
+let actx=null, rawRec=null, recSR=44100, fsW=11025, D=4, an=null;
+const RAMP=['#a9531f','#b57f2b','#7c7a3c','#2f8172','#22708a','#2c5590'];
+function hex(h){return[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)];}
+function rampColor(t){const x=t*(RAMP.length-1),i=Math.floor(x),f=x-i,c1=hex(RAMP[i]),c2=hex(RAMP[Math.min(RAMP.length-1,i+1)]);
+  return `rgb(${Math.round(c1[0]+(c2[0]-c1[0])*f)},${Math.round(c1[1]+(c2[1]-c1[1])*f)},${Math.round(c1[2]+(c2[2]-c1[2])*f)})`;}
+
+const $=id=>document.getElementById(id);
+function setStatus(t){$('status').textContent=t;}
+
+async function record(){
+  try{
+    if(!actx) actx=new (window.AudioContext||window.webkitAudioContext)();
+    if(actx.state==='suspended') await actx.resume();
+    const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
+    recSR=actx.sampleRate; D=Math.max(1,Math.round(recSR/11025)); fsW=recSR/D;
+    const srcNode=actx.createMediaStreamSource(stream);
+    const proc=actx.createScriptProcessor(4096,1,1);
+    const chunks=[]; let total=0; const need=Math.round(recSR*0.9);
+    const btn=$('rec'); btn.classList.add('recording'); btn.textContent='● 録音中…'; btn.disabled=true;
+    setStatus('録音中…（発声してください）');
+    proc.onaudioprocess=e=>{ const d=e.inputBuffer.getChannelData(0); chunks.push(new Float32Array(d)); total+=d.length;
+      if(total>=need){ finish(); } };
+    const mute=actx.createGain(); mute.gain.value=0;
+    srcNode.connect(proc); proc.connect(mute); mute.connect(actx.destination);
+    let done=false;
+    function finish(){ if(done)return; done=true;
+      proc.disconnect(); srcNode.disconnect(); mute.disconnect(); stream.getTracks().forEach(t=>t.stop());
+      const buf=new Float32Array(total); let o=0; for(const c of chunks){buf.set(c,o);o+=c.length;}
+      rawRec=buf; btn.classList.remove('recording'); btn.textContent='● もう一度 録音'; btn.disabled=false;
+      let e=0; for(let i=0;i<buf.length;i++)e+=buf[i]*buf[i]; e=Math.sqrt(e/buf.length);
+      if(e<0.005){ setStatus('声が小さいようです。もう一度、少し大きめに発声してください。'); return; }
+      setStatus('分析しました。'); reanalyze(); $('playOrig').disabled=false; $('playRe').disabled=false;
+    }
+    setTimeout(finish, 1100);
+  }catch(err){
+    setStatus('マイクを使用できませんでした（許可が必要です／HTTPSページで動作します）。');
+    $('rec').classList.remove('recording'); $('rec').textContent='● 録音（母音を約1秒）'; $('rec').disabled=false;
+    console.warn(err);
+  }
+}
+function reanalyze(){
+  if(!rawRec) return;
+  const p=parseInt($('order').value);
+  const dec=decimate(rawRec,D);
+  an=analyze(dec,fsW,p);
+  if(!an){ setStatus('録音が短すぎます。'); return; }
+  $('meta').innerHTML=`推定 f₀ <b>${an.f0.toFixed(0)} Hz</b> ・ 判定 <b>${an.voiced?'有声':'無声'}</b> ・ 反射係数 <b>${an.K.length}</b> 個`;
+  render();
+}
+function playBuf(data, sr){
+  if(!actx) actx=new (window.AudioContext||window.webkitAudioContext)();
+  if(actx.state==='suspended') actx.resume();
+  const buf=actx.createBuffer(1,data.length,sr); buf.copyToChannel(Float32Array.from(data),0);
+  const s=actx.createBufferSource(); s.buffer=buf; s.connect(actx.destination); s.start();
+}
+$('rec').addEventListener('click',record);
+$('playOrig').addEventListener('click',()=>{ if(rawRec) playBuf(rawRec,recSR); });
+$('playRe').addEventListener('click',()=>{ if(an){ const out=synthK(an.K,fsW,0.9,an.f0,an.gain,an.voiced,'glottal'); playBuf(out,fsW);} });
+$('order').addEventListener('input',()=>{ $('orderv').textContent=$('order').value; });
+$('order').addEventListener('change',reanalyze);
+
+// ================= drawing =================
+function fitCanvas(cv){const r=cv.getBoundingClientRect(),dpr=window.devicePixelRatio||1;
+  cv.width=Math.max(1,Math.round(r.width*dpr));cv.height=Math.max(1,Math.round(r.height*dpr));
+  const g=cv.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);return {g,w:r.width,h:r.height};}
+function drawTube(){
+  const {g,w,h}=fitCanvas($('tube')); g.clearRect(0,0,w,h);
+  if(!an){ g.fillStyle='#a9997d';g.font='13px sans-serif';g.fillText('録音すると、声から推定した声道の形が表示されます',14,h/2); return; }
+  const R=areaFromK(an.K), M=R.length, cy=h/2, pad=10, mx=Math.max(...R), scale=(h/2-pad)/(mx*1.05);
+  g.beginPath(); g.moveTo(pad,cy-R[0]*scale);
+  for(let i=0;i<M;i++){const x=pad+(w-2*pad)*i/(M-1);g.lineTo(x,cy-R[i]*scale);}
+  for(let i=M-1;i>=0;i--){const x=pad+(w-2*pad)*i/(M-1);g.lineTo(x,cy+R[i]*scale);}
+  g.closePath();
+  const grad=g.createLinearGradient(pad,0,w-pad,0);for(let s=0;s<=6;s++)grad.addColorStop(s/6,rampColor(s/6));
+  g.fillStyle=grad;g.globalAlpha=.85;g.fill();g.globalAlpha=1;g.strokeStyle='#182a38';g.lineWidth=1.2;g.stroke();
+  g.fillStyle='#4a5763';g.font='11px sans-serif';g.fillText('声門',pad+2,h-4);g.fillText('唇',w-pad-16,h-4);
+}
+function drawParcor(){
+  const box=$('parcor'); box.innerHTML='';
+  if(!an) return;
+  an.K.forEach((k,i)=>{
+    const pc=document.createElement('div');pc.className='pc';
+    const bar=document.createElement('div');bar.className='pcbar';
+    const zero=document.createElement('div');zero.className='zero';
+    const bi=document.createElement('i');const mag=Math.min(1,Math.abs(k)),hgt=Math.round(mag*18);
+    bi.style.height=hgt+'px';bi.style.background=rampColor(i/Math.max(1,an.K.length-1));
+    bi.style.marginTop=(k>=0?(20-hgt):20)+'px';
+    bar.appendChild(zero);bar.appendChild(bi);
+    const kk=document.createElement('div');kk.className='k';kk.textContent='k'+(i+1);
+    pc.appendChild(bar);pc.appendChild(kk);box.appendChild(pc);
+  });
+}
+function drawSpec(){
+  const {g,w,h}=fitCanvas($('spec')); g.clearRect(0,0,w,h);
+  if(!an){ g.fillStyle='#a9997d';g.font='13px sans-serif';g.fillText('録音すると、スペクトルとLPC包絡が表示されます',14,h/2); return; }
+  const fs=an.fs, NF=1024;
+  // signal spectrum (from analysis frame)
+  const re=new Float64Array(NF),im=new Float64Array(NF);
+  for(let i=0;i<Math.min(NF,an.frame.length);i++) re[i]=an.frame[i];
+  fft(re,im);
+  const fmax=Math.min(5000,fs/2), bins=Math.floor(fmax/(fs/NF));
+  const sig=[]; for(let i=0;i<bins;i++) sig.push(20*Math.log10(Math.hypot(re[i],im[i])+1e-6));
+  const env0=envFromA(an.a,fs,NF); const env=[]; for(let i=0;i<bins;i++) env.push(20*Math.log10(env0[i]*an.gain+1e-6));
+  let mn=1e9,mx=-1e9; for(const v of sig){mn=Math.min(mn,v);mx=Math.max(mx,v);} for(const v of env){mx=Math.max(mx,v);}
+  mn=Math.max(mn,mx-55);
+  const pad=6,gx=x=>pad+(w-2*pad)*x,gy=v=>h-pad-(h-2*pad)*((v-mn)/(mx-mn+1e-9));
+  g.strokeStyle='#e6ddcc';g.lineWidth=1;g.fillStyle='#a9997d';g.font='10px sans-serif';
+  for(let f=1000;f<fmax;f+=1000){const x=gx(f/fmax);g.beginPath();g.moveTo(x,pad);g.lineTo(x,h-pad);g.stroke();g.fillText((f/1000)+'k',x+2,h-4);}
+  // signal
+  g.beginPath();for(let i=0;i<bins;i++){const x=gx(i/bins),y=gy(sig[i]);i?g.lineTo(x,y):g.moveTo(x,y);}g.strokeStyle='#a9997d';g.lineWidth=1;g.stroke();
+  // envelope
+  g.beginPath();for(let i=0;i<bins;i++){const x=gx(i/bins),y=gy(env[i]);i?g.lineTo(x,y):g.moveTo(x,y);}g.strokeStyle='#2f8172';g.lineWidth=2.2;g.stroke();
+  // formant peaks from envelope
+  const pk=[];for(let i=3;i<bins-3;i++){if(env[i]>env[i-1]&&env[i]>env[i+1]&&env[i]>env[i-3]&&env[i]>env[i+3])pk.push([i,env[i]]);}
+  pk.sort((a,b)=>b[1]-a[1]);
+  pk.slice(0,3).sort((a,b)=>a[0]-b[0]).forEach((p,idx)=>{const f=Math.round(p[0]*fs/NF),x=gx(p[0]/bins);
+    g.strokeStyle='#a9531f';g.setLineDash([4,3]);g.beginPath();g.moveTo(x,pad);g.lineTo(x,h-pad);g.stroke();g.setLineDash([]);
+    g.fillStyle='#a9531f';g.font='bold 11px sans-serif';g.fillText('F'+(idx+1)+' '+f,Math.min(w-58,x+3),pad+12+idx*13);});
+}
+function render(){ drawTube(); drawParcor(); drawSpec(); }
+window.addEventListener('resize',render);
+window.addEventListener('load',render);
+render();
+</script>
+</body>
+</html>

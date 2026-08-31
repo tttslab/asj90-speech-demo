@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>① 連結音響管シンセ — 音声技術今昔物語</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=Noto+Serif+JP:wght@600;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#f2ede3; --panel:#fbf8f2; --ink:#182a38; --ink-soft:#4a5763;
+    --hair:#cfc4b1; --hair-strong:#a9997d;
+    --e1:#a9531f; --e2:#b57f2b; --e3:#7c7a3c; --e4:#2f8172; --e5:#22708a; --e6:#2c5590;
+    --accent:#b57f2b;
+    --serif:'Noto Serif JP',serif;
+    --sans:'Noto Sans JP','Hiragino Kaku Gothic ProN','Yu Gothic',sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html{-webkit-text-size-adjust:100%;}
+  body{margin:0;font-family:var(--sans);color:var(--ink);line-height:1.55;
+    background:
+      radial-gradient(80vw 40vh at 90% -5%, rgba(44,85,144,.06), transparent 60%),
+      radial-gradient(80vw 40vh at 5% 2%, rgba(169,83,31,.06), transparent 60%),
+      var(--paper); background-attachment:fixed;}
+  .wrap{max-width:680px;margin:0 auto;padding:16px 16px 40px;}
+  body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+    background-image:linear-gradient(rgba(24,42,56,.03) 1px,transparent 1px);
+    background-size:100% 26px;opacity:.5;}
+  a.back{display:inline-block;font-size:13px;font-weight:700;color:var(--e5);text-decoration:none;margin-bottom:8px;}
+  .eyebrow{font-size:11px;font-weight:700;letter-spacing:.2em;color:var(--ink-soft);text-transform:uppercase;margin:0 0 4px;}
+  h1{font-family:var(--serif);font-weight:900;font-size:clamp(24px,6.5vw,34px);margin:0;line-height:1.1;}
+  h1 .n{color:var(--accent);}
+  .sub{font-family:var(--serif);font-style:italic;color:var(--ink-soft);font-size:14px;margin:6px 0 0;}
+
+  .card{background:var(--panel);border:1px solid var(--hair);border-radius:14px;
+    padding:14px;margin-top:16px;box-shadow:0 6px 20px rgba(24,42,56,.05);}
+  .card h2{font-family:var(--serif);font-size:15px;margin:0 0 10px;font-weight:700;letter-spacing:.02em;
+    display:flex;align-items:center;gap:8px;}
+  .card h2 small{font-weight:400;font-family:var(--sans);font-size:12px;color:var(--ink-soft);letter-spacing:0;}
+  canvas{display:block;width:100%;height:150px;border-radius:8px;background:#fff;border:1px solid var(--hair);}
+
+  /* presets */
+  .presets{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
+  .presets button{font-family:var(--serif);font-weight:700;font-size:16px;padding:8px 16px;border-radius:10px;
+    border:1.5px solid var(--hair-strong);background:#fff;color:var(--ink);cursor:pointer;min-height:44px;transition:all .12s;}
+  .presets button:active{transform:translateY(1px);}
+  .presets button.on{background:var(--accent);border-color:var(--accent);color:#fff;}
+
+  /* vertical sliders row = tube profile */
+  .tubes{display:flex;justify-content:space-between;gap:6px;align-items:flex-end;padding:6px 2px 0;}
+  .tcol{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;}
+  input[type=range].vert{writing-mode:vertical-lr;direction:rtl;width:10px;height:120px;accent-color:var(--accent);cursor:pointer;}
+  .tcol .lab{font-size:10px;color:var(--ink-soft);}
+  .ends{display:flex;justify-content:space-between;font-size:11px;color:var(--ink-soft);font-weight:700;margin-top:2px;}
+
+  /* parcor bars */
+  .parcor{display:flex;justify-content:space-around;gap:4px;margin-top:12px;}
+  .pc{flex:1;text-align:center;}
+  .pcbar{height:44px;display:flex;align-items:center;justify-content:center;position:relative;}
+  .pcbar .zero{position:absolute;left:0;right:0;top:50%;height:1px;background:var(--hair);}
+  .pcbar i{display:block;width:60%;border-radius:2px;position:relative;}
+  .pc .v{font-size:10px;color:var(--ink-soft);margin-top:2px;}
+  .pc .k{font-size:10px;color:var(--ink);font-weight:700;}
+
+  /* controls */
+  .row{display:flex;align-items:center;gap:12px;margin:10px 0;flex-wrap:wrap;}
+  .row label{font-size:13px;font-weight:700;min-width:64px;}
+  input[type=range].h{flex:1;min-width:140px;accent-color:var(--accent);height:28px;}
+  .val{font-variant-numeric:tabular-nums;font-size:13px;color:var(--ink-soft);min-width:56px;text-align:right;}
+  select{font-family:var(--sans);font-size:14px;padding:8px 10px;border-radius:8px;border:1.5px solid var(--hair-strong);background:#fff;color:var(--ink);}
+  .play{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;margin-top:6px;
+    font-weight:700;font-size:17px;color:#fff;background:var(--accent);border:none;border-radius:12px;
+    padding:15px;min-height:54px;cursor:pointer;transition:filter .12s;}
+  .play:active{filter:brightness(.92);}
+  .chk{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink-soft);margin-top:8px;}
+  .note{font-size:12px;color:var(--ink-soft);background:rgba(169,153,125,.1);border:1px dashed var(--hair-strong);
+    border-radius:10px;padding:9px 11px;margin-top:12px;}
+  .foot{margin-top:22px;font-size:12px;color:var(--ink-soft);text-align:center;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="./index.html">← デモ一覧</a>
+  <p class="eyebrow">音声技術今昔物語 · 声道を測る時代 · Kelly–Lochbaum</p>
+  <h1><span class="n">①</span> 連結音響管シンセ</h1>
+  <p class="sub">各管の半径を変えて母音をつくる — 境界の反射係数がそのまま PARCOR。</p>
+
+  <!-- shape + spectrum -->
+  <div class="card">
+    <h2>声道の形 <small>声門（左）→ 唇（右）／断面積の異なる管の連結</small></h2>
+    <canvas id="tube" height="150"></canvas>
+    <div class="parcor" id="parcor"></div>
+  </div>
+
+  <div class="card">
+    <h2>共鳴（フォルマント） <small>管の伝達関数スペクトル。ピーク＝フォルマント</small></h2>
+    <canvas id="spec" height="150"></canvas>
+  </div>
+
+  <!-- controls -->
+  <div class="card">
+    <div class="presets" id="presets">
+      <button data-v="a">あ /a/</button>
+      <button data-v="i">い /i/</button>
+      <button data-v="u">う /u/</button>
+      <button data-v="n">中立</button>
+    </div>
+    <div class="tubes" id="tubes"></div>
+    <div class="ends"><span>声門（細い→太い）</span><span>唇</span></div>
+
+    <div class="row">
+      <label>ピッチ f₀</label>
+      <input type="range" class="h" id="f0" min="70" max="220" step="1" value="120">
+      <span class="val" id="f0v">120 Hz</span>
+    </div>
+    <div class="row">
+      <label>声門源</label>
+      <select id="src">
+        <option value="glottal">グロッタルパルス（自然）</option>
+        <option value="impulse">インパルス列（ロボット）</option>
+      </select>
+    </div>
+    <button class="play" id="play">▶ 再生</button>
+    <label class="chk"><input type="checkbox" id="auto" checked> スライダーを離すと自動再生</label>
+    <div class="note">iPhone など一部の環境では、最初に「再生」をタップすると音が有効になります。音が出ないときはもう一度タップしてください。この計算はすべてお使いの端末のブラウザ内（JavaScript）で行われます。</div>
+  </div>
+
+  <p class="foot">篠崎 隆宏（東京科学大学）・大谷 大和（情報通信研究機構）／ 日本音響学会 創立90周年記念</p>
+</div>
+
+<script>
+// ================= DSP: Kelly–Lochbaum / PARCOR lattice =================
+const PRESETS = {
+  a:[0.63,1.05,1.17,1.0,0.52,0.45,0.56,0.35],
+  i:[0.32,0.34,0.44,0.83,1.14,1.03,0.7,0.58],
+  u:[0.2,0.78,1.18,1.25,1.1,0.66,1.37,0.94],
+  n:[1,1,1,1,1,1,1,1],
+};
+const KDAMP=0.97, RMIN=0.15, RMAX=1.8;
+let radii = PRESETS.a.slice();
+let f0=120, src='glottal', autoPlay=true;
+
+function lerpRadii(ctrl,M){const n=ctrl.length,out=new Float64Array(M);
+  for(let j=0;j<M;j++){const pos=j/(M-1)*(n-1),lo=Math.floor(pos),hi=Math.min(n-1,lo+1),fr=pos-lo;
+    out[j]=Math.max(0.04,ctrl[lo]*(1-fr)+ctrl[hi]*fr);}return out;}
+function reflK(ctrl,M){const R=lerpRadii(ctrl,M),A=[];for(let i=0;i<M;i++)A.push(R[i]*R[i]);
+  const K=new Float64Array(M-1);for(let m=0;m<M-1;m++)K[m]=(A[m]-A[m+1])/(A[m]+A[m+1]);return K;}
+function ctrlParcor(ctrl){const A=ctrl.map(r=>r*r),Kc=[];
+  for(let i=0;i<ctrl.length-1;i++)Kc.push((A[i]-A[i+1])/(A[i]+A[i+1]));return Kc;}
+function rosenberg(ph){const Tp=0.4,Tn=0.16;
+  if(ph<Tp)return 0.5*(1-Math.cos(Math.PI*ph/Tp));
+  if(ph<Tp+Tn)return Math.cos(Math.PI*(ph-Tp)/(2*Tn));return 0;}
+function sectionsFor(fs){return Math.max(30,Math.round(2*fs*0.175/343))+1;}
+
+function synth(ctrl,fs,dur,f0,src){
+  const M=sectionsFor(fs), K=reflK(ctrl,M), p=K.length, Ku=K.map(k=>k*KDAMP);
+  const N=Math.round(fs*dur); const out=new Float32Array(N);
+  let b=new Float64Array(p+1),bn=new Float64Array(p+1),ph=0,prev=0;const dph=f0/fs;
+  for(let n=0;n<N;n++){
+    let u; if(src==='impulse')u=(ph<dph)?1:0; else u=rosenberg(ph);
+    u+=(Math.random()*2-1)*0.002; ph+=dph; if(ph>=1)ph-=1;
+    let f=u; for(let m=p;m>=1;m--){const kk=Ku[m-1],bm1=b[m-1];f=f-kk*bm1;bn[m]=kk*f+bm1;}
+    bn[0]=f; const t=b;b=bn;bn=t; out[n]=f-0.97*prev; prev=f;
+  }
+  let pk=1e-9;for(let n=0;n<N;n++)pk=Math.max(pk,Math.abs(out[n]));
+  const g=0.9/pk,fd=Math.round(0.006*fs);
+  for(let n=0;n<N;n++){let a=1;if(n<fd)a=n/fd;else if(n>N-fd)a=(N-n)/fd;out[n]*=g*a;}
+  return out;
+}
+// impulse response transfer function (for the live spectrum)
+function impulseResponse(ctrl,fs,NF){
+  const M=sectionsFor(fs),K=reflK(ctrl,M),p=K.length,Ku=K.map(k=>k*KDAMP);
+  let b=new Float64Array(p+1),bn=new Float64Array(p+1),prev=0;const out=new Float64Array(NF);
+  for(let n=0;n<NF;n++){let u=(n===0)?1:0,f=u;
+    for(let m=p;m>=1;m--){const kk=Ku[m-1],bm1=b[m-1];f=f-kk*bm1;bn[m]=kk*f+bm1;}
+    bn[0]=f;const t=b;b=bn;bn=t;out[n]=f-0.97*prev;prev=f;}
+  return out;
+}
+function fft(re,im){const n=re.length;for(let i=1,j=0;i<n;i++){let bit=n>>1;for(;j&bit;bit>>=1)j^=bit;j^=bit;
+  if(i<j){const tr=re[i];re[i]=re[j];re[j]=tr;const ti=im[i];im[i]=im[j];im[j]=ti;}}
+  for(let len=2;len<=n;len<<=1){const ang=-2*Math.PI/len,wr=Math.cos(ang),wi=Math.sin(ang);
+    for(let i=0;i<n;i+=len){let cwr=1,cwi=0;for(let k=0;k<len/2;k++){const ur=re[i+k],ui=im[i+k];
+      const vr=re[i+k+len/2]*cwr-im[i+k+len/2]*cwi,vi=re[i+k+len/2]*cwi+im[i+k+len/2]*cwr;
+      re[i+k]=ur+vr;im[i+k]=ui+vi;re[i+k+len/2]=ur-vr;im[i+k+len/2]=ui-vi;
+      const nr=cwr*wr-cwi*wi;cwi=cwr*wi+cwi*wr;cwr=nr;}}}}
+
+// ================= Audio playback (offline synth -> buffer) =================
+let actx=null;
+function play(){
+  try{
+    if(!actx) actx=new (window.AudioContext||window.webkitAudioContext)();
+    if(actx.state==='suspended') actx.resume();
+    const fs=actx.sampleRate;
+    const out=synth(radii,fs,1.1,f0,src);
+    const buf=actx.createBuffer(1,out.length,fs);
+    buf.copyToChannel(out,0);
+    const s=actx.createBufferSource(); s.buffer=buf;
+    const g=actx.createGain(); g.gain.value=0.9;
+    s.connect(g); g.connect(actx.destination); s.start();
+  }catch(e){ console.warn('audio error',e); }
+}
+
+// ================= UI build =================
+const SANS=getComputedStyle(document.documentElement);
+const RAMP=['#a9531f','#b57f2b','#7c7a3c','#2f8172','#22708a','#2c5590'];
+function rampColor(t){ // t 0..1 across warm->cool
+  const x=t*(RAMP.length-1),i=Math.floor(x),f=x-i,c1=hex(RAMP[i]),c2=hex(RAMP[Math.min(RAMP.length-1,i+1)]);
+  return `rgb(${Math.round(c1[0]+(c2[0]-c1[0])*f)},${Math.round(c1[1]+(c2[1]-c1[1])*f)},${Math.round(c1[2]+(c2[2]-c1[2])*f)})`;}
+function hex(h){return [parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)];}
+
+// sliders
+const tubesEl=document.getElementById('tubes');
+const sliders=[];
+for(let i=0;i<8;i++){
+  const col=document.createElement('div');col.className='tcol';
+  const inp=document.createElement('input');inp.type='range';inp.className='vert';
+  inp.min=RMIN;inp.max=RMAX;inp.step=0.01;inp.value=radii[i];
+  inp.addEventListener('input',()=>{radii[i]=parseFloat(inp.value);clearPreset();render();});
+  inp.addEventListener('change',()=>{ if(autoPlay) play(); });
+  const lab=document.createElement('div');lab.className='lab';lab.textContent=(i+1);
+  col.appendChild(inp);col.appendChild(lab);tubesEl.appendChild(col);sliders.push(inp);
+}
+function syncSliders(){ for(let i=0;i<8;i++) sliders[i].value=radii[i]; }
+
+// presets
+const presetEls=[...document.querySelectorAll('#presets button')];
+presetEls.forEach(btn=>btn.addEventListener('click',()=>{
+  radii=PRESETS[btn.dataset.v].slice(); syncSliders(); setPreset(btn); render(); play();
+}));
+function setPreset(btn){presetEls.forEach(b=>b.classList.toggle('on',b===btn));}
+function clearPreset(){presetEls.forEach(b=>b.classList.remove('on'));}
+
+// controls
+const f0El=document.getElementById('f0'),f0v=document.getElementById('f0v');
+f0El.addEventListener('input',()=>{f0=parseInt(f0El.value);f0v.textContent=f0+' Hz';});
+f0El.addEventListener('change',()=>{ if(autoPlay) play(); });
+document.getElementById('src').addEventListener('change',e=>{src=e.target.value; if(autoPlay) play();});
+document.getElementById('play').addEventListener('click',play);
+document.getElementById('auto').addEventListener('change',e=>autoPlay=e.target.checked);
+
+// ================= drawing =================
+const tube=document.getElementById('tube'), spec=document.getElementById('spec');
+function fitCanvas(cv){const r=cv.getBoundingClientRect();const dpr=window.devicePixelRatio||1;
+  cv.width=Math.max(1,Math.round(r.width*dpr));cv.height=Math.max(1,Math.round(r.height*dpr));
+  const g=cv.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);
+  return {g,w:r.width,h:r.height};}
+
+function drawTube(){
+  const {g,w,h}=fitCanvas(tube); g.clearRect(0,0,w,h);
+  const M=120,R=lerpRadii(radii,M),cy=h/2,pad=10;
+  const maxR=RMAX; const scale=(h/2-pad)/maxR;
+  // filled tube (mirror)
+  g.beginPath(); g.moveTo(pad, cy-R[0]*scale);
+  for(let i=0;i<M;i++){const x=pad+(w-2*pad)*i/(M-1);g.lineTo(x,cy-R[i]*scale);}
+  for(let i=M-1;i>=0;i--){const x=pad+(w-2*pad)*i/(M-1);g.lineTo(x,cy+R[i]*scale);}
+  g.closePath();
+  const grad=g.createLinearGradient(pad,0,w-pad,0);
+  for(let s=0;s<=6;s++)grad.addColorStop(s/6,rampColor(s/6));
+  g.fillStyle=grad; g.globalAlpha=0.85; g.fill(); g.globalAlpha=1;
+  g.strokeStyle='#182a38'; g.lineWidth=1.2; g.stroke();
+  // junction ticks at 8 control positions
+  g.strokeStyle='rgba(24,42,56,.28)';g.lineWidth=1;g.setLineDash([3,3]);
+  for(let i=1;i<7;i++){const x=pad+(w-2*pad)*i/7;g.beginPath();g.moveTo(x,cy-R[Math.round(i/7*(M-1))]*scale);g.lineTo(x,cy+R[Math.round(i/7*(M-1))]*scale);g.stroke();}
+  g.setLineDash([]);
+  // labels
+  g.fillStyle='#4a5763';g.font='11px sans-serif';
+  g.fillText('声門',pad+2,h-4); g.fillText('唇',w-pad-16,h-4);
+}
+
+function drawParcor(){
+  const Kc=ctrlParcor(radii); const box=document.getElementById('parcor'); box.innerHTML='';
+  Kc.forEach((k,i)=>{
+    const pc=document.createElement('div');pc.className='pc';
+    const bar=document.createElement('div');bar.className='pcbar';
+    const zero=document.createElement('div');zero.className='zero';
+    const bi=document.createElement('i');
+    const mag=Math.min(1,Math.abs(k)); const hgt=Math.round(mag*20);
+    bi.style.height=hgt+'px';
+    bi.style.background=rampColor((i+0.5)/7);
+    bi.style.marginTop=(k>=0? (20-hgt) : 20)+'px'; // above zero if +, below if -
+    bar.appendChild(zero);bar.appendChild(bi);
+    const kv=document.createElement('div');kv.className='k';kv.textContent='r'+(i+1);
+    const vv=document.createElement('div');vv.className='v';vv.textContent=k.toFixed(2);
+    pc.appendChild(bar);pc.appendChild(kv);pc.appendChild(vv);box.appendChild(pc);
+  });
+}
+
+function drawSpec(){
+  const {g,w,h}=fitCanvas(spec); g.clearRect(0,0,w,h);
+  const fsD=44100, NF=4096; const ir=impulseResponse(radii,fsD,NF);
+  const re=new Float64Array(NF),im=new Float64Array(NF);
+  for(let i=0;i<NF;i++){const win=0.5-0.5*Math.cos(2*Math.PI*i/(NF-1));re[i]=ir[i]*win;}
+  fft(re,im);
+  const fmax=4000, bins=Math.floor(fmax/(fsD/NF));
+  const mag=[];for(let i=0;i<bins;i++){mag.push(20*Math.log10(Math.hypot(re[i],im[i])+1e-6));}
+  let mn=1e9,mx=-1e9;for(const v of mag){mn=Math.min(mn,v);mx=Math.max(mx,v);}
+  mn=Math.max(mn,mx-42);
+  const pad=6, gx=x=>pad+(w-2*pad)*x, gy=v=>h-pad-(h-2*pad)*((v-mn)/(mx-mn+1e-9));
+  // grid (1k,2k,3k)
+  g.strokeStyle='#e6ddcc';g.lineWidth=1;g.fillStyle='#a9997d';g.font='10px sans-serif';
+  for(let f=1000;f<fmax;f+=1000){const x=gx(f/fmax);g.beginPath();g.moveTo(x,pad);g.lineTo(x,h-pad);g.stroke();g.fillText((f/1000)+'k',x+2,h-4);}
+  // envelope
+  g.beginPath();for(let i=0;i<bins;i++){const x=gx(i/bins),y=gy(mag[i]);i?g.lineTo(x,y):g.moveTo(x,y);}
+  g.strokeStyle='#22708a';g.lineWidth=2;g.stroke();
+  g.lineTo(gx(1),h-pad);g.lineTo(gx(0),h-pad);g.closePath();g.fillStyle='rgba(34,112,138,.10)';g.fill();
+  // formant peaks
+  const sm=mag.map((v,i)=>{let s=0,c=0;for(let d=-4;d<=4;d++){const j=i+d;if(j>=0&&j<mag.length){s+=mag[j];c++;}}return s/c;});
+  const pk=[];for(let i=3;i<bins-3;i++){if(sm[i]>sm[i-1]&&sm[i]>sm[i+1]&&sm[i]>sm[i-3]&&sm[i]>sm[i+3]){pk.push([i,sm[i]]);}}
+  pk.sort((a,b)=>b[1]-a[1]);
+  pk.slice(0,3).sort((a,b)=>a[0]-b[0]).forEach((p,idx)=>{
+    const f=Math.round(p[0]*fsD/NF),x=gx(p[0]/bins);
+    g.strokeStyle='#a9531f';g.setLineDash([4,3]);g.beginPath();g.moveTo(x,pad);g.lineTo(x,h-pad);g.stroke();g.setLineDash([]);
+    g.fillStyle='#a9531f';g.font='bold 11px sans-serif';g.fillText('F'+(idx+1)+' '+f,Math.min(w-56,x+3),pad+12+idx*13);
+  });
+}
+
+function render(){ drawTube(); drawParcor(); drawSpec(); }
+
+// init
+setPreset(presetEls[0]);
+window.addEventListener('resize',()=>render());
+window.addEventListener('load',()=>{ render(); });
+render();
+</script>
+</body>
+</html>

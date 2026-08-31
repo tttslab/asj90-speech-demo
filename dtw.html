@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>③ DTWで音声認識 — 音声技術今昔物語</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=Noto+Serif+JP:wght@600;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#f2ede3; --panel:#fbf8f2; --ink:#182a38; --ink-soft:#4a5763;
+    --hair:#cfc4b1; --hair-strong:#a9997d;
+    --e1:#a9531f; --e2:#b57f2b; --e3:#7c7a3c; --e4:#2f8172; --e5:#22708a; --e6:#2c5590;
+    --accent:#2f8172;
+    --serif:'Noto Serif JP',serif;
+    --sans:'Noto Sans JP','Hiragino Kaku Gothic ProN','Yu Gothic',sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html{-webkit-text-size-adjust:100%;}
+  body{margin:0;font-family:var(--sans);color:var(--ink);line-height:1.55;
+    background:
+      radial-gradient(80vw 40vh at 90% -5%, rgba(44,85,144,.06), transparent 60%),
+      radial-gradient(80vw 40vh at 5% 2%, rgba(169,83,31,.06), transparent 60%),
+      var(--paper); background-attachment:fixed;}
+  .wrap{max-width:680px;margin:0 auto;padding:16px 16px 40px;}
+  body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+    background-image:linear-gradient(rgba(24,42,56,.03) 1px,transparent 1px);background-size:100% 26px;opacity:.5;}
+  a.back{display:inline-block;font-size:13px;font-weight:700;color:var(--e5);text-decoration:none;margin-bottom:8px;}
+  .eyebrow{font-size:11px;font-weight:700;letter-spacing:.2em;color:var(--ink-soft);text-transform:uppercase;margin:0 0 4px;}
+  h1{font-family:var(--serif);font-weight:900;font-size:clamp(23px,6vw,32px);margin:0;line-height:1.1;}
+  h1 .n{color:var(--accent);}
+  .sub{font-family:var(--serif);font-style:italic;color:var(--ink-soft);font-size:14px;margin:6px 0 0;}
+
+  .card{background:var(--panel);border:1px solid var(--hair);border-radius:14px;padding:14px;margin-top:16px;box-shadow:0 6px 20px rgba(24,42,56,.05);}
+  .card h2{font-family:var(--serif);font-size:15px;margin:0 0 4px;font-weight:700;}
+  .card .desc{font-size:12.5px;color:var(--ink-soft);margin:0 0 12px;}
+  canvas{display:block;width:100%;height:230px;border-radius:8px;background:#fff;border:1px solid var(--hair);}
+
+  .slot{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+  .slot input.lab{flex:1;min-width:0;font-family:var(--serif);font-size:17px;font-weight:700;padding:9px 10px;
+    border:1.5px solid var(--hair-strong);border-radius:9px;background:#fff;color:var(--ink);}
+  .slot .enr{white-space:nowrap;font-weight:700;font-size:13px;color:#fff;background:var(--accent);border:none;
+    border-radius:9px;padding:11px 12px;min-height:44px;cursor:pointer;transition:filter .12s;}
+  .slot .enr.rec{background:#b0342b;animation:pulse 1s infinite;}
+  .slot .enr:active{filter:brightness(.92);}
+  .slot .st{width:26px;text-align:center;font-size:16px;}
+  @keyframes pulse{50%{filter:brightness(1.3);}}
+  .tools{display:flex;justify-content:space-between;align-items:center;margin-top:4px;}
+  .tools button{font-size:12px;color:var(--ink-soft);background:none;border:none;text-decoration:underline;cursor:pointer;}
+
+  .test{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;font-weight:700;font-size:18px;
+    color:#fff;background:var(--accent);border:none;border-radius:12px;padding:16px;min-height:58px;cursor:pointer;transition:filter .12s;}
+  .test.rec{background:#7a1f19;animation:pulse 1s infinite;} .test:disabled{opacity:.45;} .test:active{filter:brightness(.92);}
+  .status{font-size:13px;text-align:center;margin-top:8px;min-height:18px;font-weight:700;}
+
+  .result{text-align:center;margin-top:12px;}
+  .result .big{font-family:var(--serif);font-weight:900;font-size:44px;color:var(--accent);line-height:1.1;}
+  .result .cap{font-size:12px;color:var(--ink-soft);}
+  .scores{margin-top:12px;display:flex;flex-direction:column;gap:6px;}
+  .score{display:flex;align-items:center;gap:8px;font-size:14px;}
+  .score .nm{font-family:var(--serif);font-weight:700;min-width:70px;}
+  .score .track{flex:1;height:16px;background:#efe7d9;border-radius:8px;overflow:hidden;}
+  .score .fill{height:100%;border-radius:8px;background:var(--hair-strong);}
+  .score.best .fill{background:var(--accent);} .score.best .nm{color:var(--accent);}
+  .score .cv{font-variant-numeric:tabular-nums;font-size:12px;color:var(--ink-soft);min-width:46px;text-align:right;}
+
+  .note{font-size:12px;color:var(--ink-soft);background:rgba(169,153,125,.1);border:1px dashed var(--hair-strong);border-radius:10px;padding:9px 11px;margin-top:12px;}
+  .foot{margin-top:22px;font-size:12px;color:var(--ink-soft);text-align:center;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="./index.html">← デモ一覧</a>
+  <p class="eyebrow">音声技術今昔物語 · 時系列モデルの時代 · DTW</p>
+  <h1><span class="n">③</span> DTWで音声認識</h1>
+  <p class="sub">単語を登録 → テスト録音を時間伸縮でマッチング → いちばん近い語を答える。</p>
+
+  <!-- enroll -->
+  <div class="card">
+    <h2>1. 単語を登録</h2>
+    <p class="desc">語の名前を決めて、それぞれ1回ずつ録音します。同じ人が登録・テストするとよく当たります（話者依存）。</p>
+    <div id="slots"></div>
+    <div class="tools"><span id="enrollNote" class="desc" style="margin:0;"></span><button id="clearAll">すべて消去</button></div>
+  </div>
+
+  <!-- test -->
+  <div class="card">
+    <h2>2. テスト</h2>
+    <p class="desc">登録した語のどれかを話してください。DTWで各テンプレートと照合します。</p>
+    <button class="test" id="test" disabled>● テスト録音</button>
+    <div class="status" id="status">先に語を1つ以上登録してください。</div>
+    <div class="result" id="result" style="display:none;">
+      <div class="big" id="resLabel">—</div>
+      <div class="cap">いちばん近いテンプレート（DTW正規化コスト最小）</div>
+      <div class="scores" id="scores"></div>
+    </div>
+  </div>
+
+  <!-- dtw grid -->
+  <div class="card">
+    <h2>DTWの対応付け</h2>
+    <p class="desc">縦＝テスト音声のフレーム、横＝最良テンプレート。明るいほど距離が小さく、線が最適な時間対応（ワーピング経路）。</p>
+    <canvas id="grid"></canvas>
+  </div>
+
+  <div class="note">録音・特徴抽出（MFCC）・DTW照合はすべて端末のブラウザ内で行われ、音声は送信されません。マイクにはブラウザの許可が必要で、HTTPSのページで動作します。登録内容はこの端末内に一時保存されます。</div>
+  <p class="foot">篠崎 隆宏（東京科学大学）・大谷 大和（情報通信研究機構）／ 日本音響学会 創立90周年記念</p>
+</div>
+
+<script>
+// ================= feature + DTW (validated) =================
+function nextPow2(n){let p=1;while(p<n)p<<=1;return p;}
+function fft(re,im){const n=re.length;for(let i=1,j=0;i<n;i++){let bit=n>>1;for(;j&bit;bit>>=1)j^=bit;j^=bit;if(i<j){const t=re[i];re[i]=re[j];re[j]=t;const u=im[i];im[i]=im[j];im[j]=u;}}for(let len=2;len<=n;len<<=1){const ang=-2*Math.PI/len,wr=Math.cos(ang),wi=Math.sin(ang);for(let i=0;i<n;i+=len){let cwr=1,cwi=0;for(let k=0;k<len/2;k++){const ur=re[i+k],ui=im[i+k];const vr=re[i+k+len/2]*cwr-im[i+k+len/2]*cwi,vi=re[i+k+len/2]*cwi+im[i+k+len/2]*cwr;re[i+k]=ur+vr;im[i+k]=ui+vi;re[i+k+len/2]=ur-vr;im[i+k+len/2]=ui-vi;const nr=cwr*wr-cwi*wi;cwi=cwr*wi+cwi*wr;cwr=nr;}}}}
+function melFB(nfilt,NFFT,fs){const mel=f=>2595*Math.log10(1+f/700),imel=m=>700*(Math.pow(10,m/2595)-1);
+  const lo=mel(80),hi=mel(fs/2),pts=[];for(let i=0;i<nfilt+2;i++)pts.push(imel(lo+(hi-lo)*i/(nfilt+1)));
+  const bin=pts.map(f=>Math.floor((NFFT+1)*f/fs)),FB=[];
+  for(let m=1;m<=nfilt;m++){const f=new Float64Array(NFFT/2+1);
+    for(let k=bin[m-1];k<bin[m];k++)if(k>=0&&k<f.length)f[k]=(k-bin[m-1])/(bin[m]-bin[m-1]+1e-9);
+    for(let k=bin[m];k<bin[m+1];k++)if(k>=0&&k<f.length)f[k]=(bin[m+1]-k)/(bin[m+1]-bin[m]+1e-9);
+    FB.push(f);}return FB;}
+function mfcc(x,fs){
+  const Nf=Math.round(0.025*fs),hop=Math.round(0.010*fs),NFFT=nextPow2(Nf),nfilt=26,ncep=12;
+  const FB=melFB(nfilt,NFFT,fs),frames=[],energies=[];
+  const pe=new Float64Array(x.length);for(let n=0;n<x.length;n++)pe[n]=x[n]-0.97*(x[n-1]||0);
+  const win=new Float64Array(Nf);for(let n=0;n<Nf;n++)win[n]=0.54-0.46*Math.cos(2*Math.PI*n/(Nf-1));
+  const lifter=new Float64Array(ncep);for(let i=0;i<ncep;i++)lifter[i]=1+11*Math.sin(Math.PI*(i+1)/22);
+  for(let st=0;st+Nf<=pe.length;st+=hop){
+    const re=new Float64Array(NFFT),im=new Float64Array(NFFT);let e=0;
+    for(let n=0;n<Nf;n++){const s=pe[st+n]*win[n];re[n]=s;e+=s*s;}
+    fft(re,im);const pow=new Float64Array(NFFT/2+1);for(let k=0;k<=NFFT/2;k++)pow[k]=(re[k]*re[k]+im[k]*im[k])/NFFT;
+    const cep=new Float64Array(ncep);
+    const lm=new Float64Array(nfilt);for(let m=0;m<nfilt;m++){let s=0;const f=FB[m];for(let k=0;k<f.length;k++)s+=f[k]*pow[k];lm[m]=Math.log(s+1e-8);}
+    for(let i=1;i<=ncep;i++){let s=0;for(let m=0;m<nfilt;m++)s+=lm[m]*Math.cos(Math.PI*i*(m+0.5)/nfilt);cep[i-1]=s*lifter[i-1];}
+    frames.push(cep);energies.push(Math.log(e+1e-9));
+  }
+  if(!frames.length) return [];
+  const mx=Math.max(...energies),thr=mx-4.0;let s=0,ec=frames.length-1;
+  while(s<frames.length&&energies[s]<thr)s++;while(ec>s&&energies[ec]<thr)ec--;
+  let sel=frames.slice(s,ec+1);if(sel.length<3)sel=frames;
+  const dim=ncep,mean=new Float64Array(dim);
+  for(const fr of sel)for(let d=0;d<dim;d++)mean[d]+=fr[d]/sel.length;
+  return sel.map(fr=>Array.from(fr,(v,d)=>v-mean[d]));
+}
+function dist(a,b){let s=0;for(let d=0;d<a.length;d++){const e=a[d]-b[d];s+=e*e;}return Math.sqrt(s);}
+function dtw(A,B){const n=A.length,m=B.length,INF=1e18;
+  const D=Array.from({length:n+1},()=>new Float64Array(m+1).fill(INF));D[0][0]=0;
+  const loc=Array.from({length:n},()=>new Float64Array(m));
+  for(let i=1;i<=n;i++)for(let j=1;j<=m;j++){const c=dist(A[i-1],B[j-1]);loc[i-1][j-1]=c;
+    D[i][j]=c+Math.min(D[i-1][j],D[i][j-1],D[i-1][j-1]);}
+  // backtrack
+  const path=[];let i=n,j=m;while(i>0&&j>0){path.push([i-1,j-1]);
+    const a=D[i-1][j],b=D[i][j-1],c=D[i-1][j-1];
+    if(c<=a&&c<=b){i--;j--;}else if(a<=b){i--;}else{j--;}}
+  path.reverse();
+  return {cost:D[n][m]/(n+m),loc,path,n,m};
+}
+
+// ================= audio capture =================
+let actx=null,recSR=44100,Dfac=3,fsW=14700;
+function recordSamples(seconds, onDone, onErr, onStart){
+  (async()=>{try{
+    if(!actx)actx=new (window.AudioContext||window.webkitAudioContext)();
+    if(actx.state==='suspended')await actx.resume();
+    const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
+    recSR=actx.sampleRate;Dfac=Math.max(1,Math.round(recSR/15000));fsW=recSR/Dfac;
+    const src=actx.createMediaStreamSource(stream),proc=actx.createScriptProcessor(4096,1,1);
+    const chunks=[];let total=0;const need=Math.round(recSR*seconds);let done=false;
+    if(onStart)onStart();
+    proc.onaudioprocess=e=>{const d=e.inputBuffer.getChannelData(0);chunks.push(new Float32Array(d));total+=d.length;if(total>=need)finish();};
+    const mute=actx.createGain();mute.gain.value=0;src.connect(proc);proc.connect(mute);mute.connect(actx.destination);
+    function finish(){if(done)return;done=true;proc.disconnect();src.disconnect();mute.disconnect();stream.getTracks().forEach(t=>t.stop());
+      const buf=new Float32Array(total);let o=0;for(const c of chunks){buf.set(c,o);o+=c.length;}onDone(buf);}
+    setTimeout(finish,seconds*1000+250);
+  }catch(err){ if(onErr)onErr(err); }})();
+}
+function decimate(x){const N=Math.floor(x.length/Dfac),y=new Float32Array(N);for(let i=0;i<N;i++){let s=0;for(let d=0;d<Dfac;d++)s+=x[i*Dfac+d];y[i]=s/Dfac;}return y;}
+function energyRMS(x){let e=0;for(let i=0;i<x.length;i++)e+=x[i]*x[i];return Math.sqrt(e/x.length);}
+
+// ================= state / storage =================
+const DEFAULT=['いち','に','さん','よん'];
+let templates=[]; // {label, frames}
+function load(){ try{const s=localStorage.getItem('dtw_tpl');if(s)templates=JSON.parse(s);}catch(e){} 
+  if(!templates.length) templates=DEFAULT.map(l=>({label:l,frames:null})); }
+function save(){ try{localStorage.setItem('dtw_tpl',JSON.stringify(templates));}catch(e){} }
+load();
+
+const $=id=>document.getElementById(id);
+function enrolledCount(){return templates.filter(t=>t.frames&&t.frames.length).length;}
+function refresh(){
+  const box=$('slots');box.innerHTML='';
+  templates.forEach((t,idx)=>{
+    const row=document.createElement('div');row.className='slot';
+    const inp=document.createElement('input');inp.className='lab';inp.value=t.label;
+    inp.addEventListener('input',()=>{t.label=inp.value;save();});
+    const btn=document.createElement('button');btn.className='enr';btn.textContent=t.frames?'録り直す':'録音';
+    btn.addEventListener('click',()=>enroll(idx,btn));
+    const st=document.createElement('span');st.className='st';st.textContent=(t.frames&&t.frames.length)?'✓':'–';
+    row.appendChild(inp);row.appendChild(btn);row.appendChild(st);box.appendChild(row);
+  });
+  const n=enrolledCount();
+  $('enrollNote').textContent=n?`登録済み ${n} 語`:'まだ登録がありません';
+  $('test').disabled = n<1;
+  $('status').textContent = n<1 ? '先に語を1つ以上登録してください。' : 'テスト録音できます。';
+}
+function enroll(idx,btn){
+  recordSamples(1.1,(buf)=>{
+    btn.classList.remove('rec');btn.textContent='録り直す';
+    if(energyRMS(buf)<0.004){ $('status').textContent='声が小さいようです。もう一度、はっきり発声してください。'; refresh(); return; }
+    const fr=mfcc(decimate(buf),fsW);
+    templates[idx].frames=fr;save();refresh();
+    $('status').textContent=`「${templates[idx].label}」を登録しました（${fr.length}フレーム）。`;
+  },(err)=>{ btn.classList.remove('rec'); $('status').textContent='マイクを使用できませんでした（許可が必要です／HTTPSで動作）。'; },
+  ()=>{ btn.classList.add('rec'); btn.textContent='● 録音中'; $('status').textContent='録音中…（発声してください）'; });
+}
+$('clearAll').addEventListener('click',()=>{ templates=DEFAULT.map(l=>({label:l,frames:null}));save();refresh();$('result').style.display='none';drawGrid(null);});
+
+// ================= test / recognize =================
+$('test').addEventListener('click',()=>{
+  const btn=$('test');
+  recordSamples(1.1,(buf)=>{
+    btn.classList.remove('rec');btn.textContent='● もう一度 テスト録音';
+    if(energyRMS(buf)<0.004){ $('status').textContent='声が小さいようです。もう一度。'; return; }
+    const feat=mfcc(decimate(buf),fsW);
+    const enr=templates.filter(t=>t.frames&&t.frames.length);
+    let results=enr.map(t=>({label:t.label, r:dtw(feat,t.frames)}));
+    results.sort((a,b)=>a.r.cost-b.r.cost);
+    $('status').textContent='照合しました。';
+    showResult(results);
+    drawGrid(results[0].r);
+  },(err)=>{ btn.classList.remove('rec'); $('status').textContent='マイクを使用できませんでした。'; },
+  ()=>{ btn.classList.add('rec'); btn.textContent='● 録音中'; $('status').textContent='録音中…（登録した語を話す）'; });
+});
+function showResult(results){
+  $('result').style.display='block';
+  $('resLabel').textContent=results[0].label;
+  const box=$('scores');box.innerHTML='';
+  const costs=results.map(r=>r.r.cost),mn=Math.min(...costs),mx=Math.max(...costs,mn+1e-6);
+  results.forEach((r,i)=>{
+    const row=document.createElement('div');row.className='score'+(i===0?' best':'');
+    const nm=document.createElement('div');nm.className='nm';nm.textContent=r.label;
+    const track=document.createElement('div');track.className='track';
+    const fill=document.createElement('div');fill.className='fill';
+    // shorter bar = better: map cost -> width where best is longest
+    const w=100*(1-(r.r.cost-mn)/(mx-mn)); fill.style.width=Math.max(6,w)+'%';
+    track.appendChild(fill);
+    const cv=document.createElement('div');cv.className='cv';cv.textContent=r.r.cost.toFixed(1);
+    row.appendChild(nm);row.appendChild(track);row.appendChild(cv);box.appendChild(row);
+  });
+}
+
+// ================= DTW grid drawing =================
+function fitCanvas(cv){const r=cv.getBoundingClientRect(),dpr=window.devicePixelRatio||1;
+  cv.width=Math.max(1,Math.round(r.width*dpr));cv.height=Math.max(1,Math.round(r.height*dpr));
+  const g=cv.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);return {g,w:r.width,h:r.height};}
+function drawGrid(R){
+  const {g,w,h}=fitCanvas($('grid'));g.clearRect(0,0,w,h);
+  if(!R){ g.fillStyle='#a9997d';g.font='13px sans-serif';g.fillText('テスト録音すると、コスト行列と最適経路が表示されます',14,h/2);return; }
+  const pad=26, gw=w-pad-8, gh=h-pad-8, n=R.n, m=R.m;
+  // normalize local distances
+  let mx=1e-9;for(let i=0;i<n;i++)for(let j=0;j<m;j++)mx=Math.max(mx,R.loc[i][j]);
+  const cw=gw/m, ch=gh/n;
+  for(let i=0;i<n;i++)for(let j=0;j<m;j++){ const v=R.loc[i][j]/mx; // small dist -> bright
+    const t=1-Math.pow(v,0.6); // brightness
+    const c=Math.round(30+t*205);
+    g.fillStyle=`rgb(${Math.round(242-t*40)},${Math.round(237-t*20)},${Math.round(227- t*10 +0)})`;
+    // teal-tinted heat: darker teal for small dist
+    g.fillStyle=`rgba(47,129,114,${0.08+t*0.85})`;
+    g.fillRect(pad+j*cw, pad + (n-1-i)*ch, Math.ceil(cw), Math.ceil(ch)); }
+  // path
+  g.strokeStyle='#a9531f';g.lineWidth=2.5;g.beginPath();
+  R.path.forEach(([i,j],k)=>{ const x=pad+(j+0.5)*cw, y=pad+(n-1-i+0.5)*ch; k?g.lineTo(x,y):g.moveTo(x,y); });
+  g.stroke();
+  // axes labels
+  g.fillStyle='#4a5763';g.font='11px sans-serif';
+  g.save();g.translate(12,h/2);g.rotate(-Math.PI/2);g.textAlign='center';g.fillText('テスト（フレーム）',0,0);g.restore();
+  g.textAlign='center';g.fillText('テンプレート（フレーム）',pad+gw/2,h-6);
+}
+
+window.addEventListener('resize',()=>drawGrid(window.__lastR||null));
+const _dg=drawGrid; drawGrid=function(R){window.__lastR=R;return _dg(R);};
+window.addEventListener('load',()=>{refresh();drawGrid(null);});
+refresh();drawGrid(null);
+</script>
+</body>
+</html>
