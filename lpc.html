@@ -69,6 +69,13 @@
   .pcbar i{display:block;width:70%;margin:0 auto;border-radius:2px;position:relative;}
   .pc .k{font-size:9px;color:var(--ink-soft);}
 
+  .seg{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-top:14px;}
+  .seglab{font-size:14px;font-weight:700;color:var(--ink);}
+  .segbtns{display:flex;gap:6px;}
+  .segbtns button{font:inherit;font-size:14px;padding:7px 14px;border:1px solid var(--hair);background:#fff;
+                  border-radius:999px;cursor:pointer;color:var(--ink-soft);}
+  .segbtns button.on{background:#a9531f;border-color:#a9531f;color:#fff;font-weight:700;}
+  .segout{font-size:12.5px;color:var(--ink-soft);font-variant-numeric:tabular-nums;}
   .note{font-size:12px;color:var(--ink-soft);background:rgba(169,153,125,.1);border:1px dashed var(--hair-strong);
     border-radius:10px;padding:9px 11px;margin-top:12px;}
   .foot{margin-top:22px;font-size:12px;color:var(--ink-soft);text-align:center;}
@@ -86,24 +93,34 @@
 
   <!-- record -->
   <div class="card">
-    <button class="rec" id="rec">● 録音（母音を約1秒）</button>
-    <p class="hint">マイクに向かって「あー」「いー」「うー」と伸ばして発声してください。</p>
+    <button class="rec" id="rec">● 録音（母音を一つ、約1秒）</button>
+    <p class="hint">「あー」「いー」「うー」など、<b>母音を一つだけ</b>選び、約1秒のばして発声してください。<br>別の母音を試すときは、もう一度録音します。</p>
     <div class="status" id="status"></div>
     <div class="meta" id="meta"></div>
     <div class="playrow">
       <button class="pbtn orig" id="playOrig" disabled>▶ 元の声</button>
       <button class="pbtn re" id="playRe" disabled>▶ 再合成（PARCOR→管）</button>
     </div>
-    <div class="row">
-      <label>LPC次数 p</label>
-      <input type="range" class="h" id="order" min="8" max="20" step="1" value="14">
-      <span class="val" id="orderv">14</span>
+    <div class="seg">
+      <span class="seglab">管 1 区間の長さ</span>
+      <div class="segbtns" id="seglen">
+        <button data-mm="5">5 mm</button>
+        <button data-mm="10" class="on">10 mm</button>
+        <button data-mm="15">15 mm</button>
+      </div>
+      <span class="segout" id="segout"></span>
+    </div>
+    <div class="note">
+      デモ①と同じ考え方で、声道を <b>1 区間 = この長さ</b> の管の連結とみなします。すると
+      「1 サンプルで音波が 1 区間を往復する」条件から分析のサンプリング周波数 <b>fs = c / 2L</b> が決まり、
+      区間の境界の数がそのまま <b>LPC の次数</b>になります。録音した声はこの fs に変換してから分析しています。
+      短い管ほど次数と帯域が上がって細かく、長い管ほど粗いモデルになります。
     </div>
   </div>
 
   <!-- estimated tract -->
   <div class="card">
-    <h2>推定された声道の形 <small>あなたの声から立ち上がった断面積関数（声門→唇）</small></h2>
+    <h2>推定された声道の形 <small>あなたの声から立ち上がった断面積関数（声門→唇）／縦は相対値</small></h2>
     <canvas id="tube"></canvas>
     <div class="parcor" id="parcor"></div>
   </div>
@@ -126,6 +143,41 @@ function rosenberg(ph){const Tp=0.4,Tn=0.16;
   if(ph<Tp+Tn)return Math.cos(Math.PI*(ph-Tp)/(2*Tn));return 0;}
 function decimate(x,D){const N=Math.floor(x.length/D),y=new Float64Array(N);
   for(let i=0;i<N;i++){let s=0;for(let d=0;d<D;d++)s+=x[i*D+d];y[i]=s/D;}return y;}
+// resample to an arbitrary rate: FIR lowpass at the new Nyquist, then linear interpolation
+function resampleTo(x,fsIn,fsOut){
+  if(Math.abs(fsIn-fsOut)<1) return Float64Array.from(x);
+  let src=x;
+  if(fsOut<fsIn){
+    const fc=0.45*fsOut/fsIn, n=63, h=new Float64Array(n); let sum=0;
+    for(let i=0;i<n;i++){
+      const t=i-(n-1)/2;
+      const sinc = (t===0)? 2*fc : Math.sin(2*Math.PI*fc*t)/(Math.PI*t);
+      const win = 0.54-0.46*Math.cos(2*Math.PI*i/(n-1));
+      h[i]=sinc*win; sum+=h[i];
+    }
+    for(let i=0;i<n;i++) h[i]/=sum;
+    const y=new Float64Array(x.length);
+    for(let i=0;i<x.length;i++){
+      let acc=0;
+      for(let k=0;k<n;k++){ const j=i+k-((n-1)>>1); if(j>=0&&j<x.length) acc+=x[j]*h[k]; }
+      y[i]=acc;
+    }
+    src=y;
+  }
+  const r=fsOut/fsIn, N=Math.floor(src.length*r), out=new Float64Array(N);
+  for(let i=0;i<N;i++){
+    const t=i/r, j=Math.floor(t), fr=t-j;
+    const a=src[j]||0, b=(j+1<src.length)?src[j+1]:a;
+    out[i]=a+(b-a)*fr;
+  }
+  return out;
+}
+// --- tube-model settings shared with demo (1): one section = LSEG, fs = c/(2L) ---
+const CSND=343, VTLEN=0.18;
+let LSEG=0.010;
+function fsModel(){ return Math.round(CSND/(2*LSEG)); }
+function segCount(){ return Math.max(4,Math.round(VTLEN/LSEG)); }   // segments
+function orderFromTube(){ return segCount()-1; }                    // junctions = LPC order
 function bestFrame(x,W){let best=0,bi=0;for(let i=0;i+W<x.length;i+=Math.floor(W/4)){let e=0;for(let n=0;n<W;n++)e+=x[i+n]*x[i+n];if(e>best){best=e;bi=i;}}return bi;}
 function analyze(x,fs,p){
   const W=Math.min(x.length,Math.round(0.030*fs)); if(W<p+4) return null;
@@ -140,10 +192,22 @@ function analyze(x,fs,p){
     for(let j=1;j<i;j++)a[j]=ap[j]+k*ap[i-j];E*=(1-k*k);if(E<=0)E=1e-9;}
   // f0 + voicing on windowed non-preemph frame
   const g2=new Float64Array(W);for(let n=0;n<W;n++){const w=0.54-0.46*Math.cos(2*Math.PI*n/(W-1));g2[n]=x[st+n]*w;}
-  let lomin=Math.floor(fs/350),lomax=Math.floor(fs/70),bl=0,bv=-1;
-  for(let l=lomin;l<=lomax;l++){let s=0;for(let n=l;n<W;n++)s+=g2[n]*g2[n-l];if(s>bv){bv=s;bl=l;}}
-  let e0=0;for(let n=0;n<W;n++)e0+=g2[n]*g2[n];
-  const voiced=bv/(e0+1e-9)>0.25; const f0=bl>0?fs/bl:120;
+  // normalised autocorrelation (unnormalised sums are biased towards short lags)
+  const lomin=Math.floor(fs/350),lomax=Math.min(W-2,Math.floor(fs/70));
+  const rr=new Float64Array(lomax+1); let bv=-1,bl=0;
+  for(let l=lomin;l<=lomax;l++){
+    let s=0,ea=0,eb=0;
+    for(let n=l;n<W;n++){ s+=g2[n]*g2[n-l]; ea+=g2[n]*g2[n]; eb+=g2[n-l]*g2[n-l]; }
+    rr[l]=s/Math.sqrt(ea*eb+1e-12);
+    if(rr[l]>bv){bv=rr[l];bl=l;}
+  }
+  // avoid picking a sub-multiple of the true period: take the LONGEST lag that is
+  // still a strong local peak (>= 85% of the best score)
+  const thr=0.85*bv;
+  for(let l=lomax-1;l>bl;l--){
+    if(rr[l]>=thr && rr[l]>=rr[l-1] && rr[l]>=rr[l+1]){ bl=l; break; }
+  }
+  const voiced=bv>0.35; const f0=bl>0?fs/bl:120;
   return {a:Array.from(a),K:Array.from(K.slice(1)),gain:Math.sqrt(Math.max(E,1e-9)),f0,voiced,p,frame:f,st,W,fs};
 }
 function envFromA(a,fs,NF){const p=a.length-1,mag=[];
@@ -189,12 +253,12 @@ async function record(){
     if(!actx) actx=new (window.AudioContext||window.webkitAudioContext)();
     if(actx.state==='suspended') await actx.resume();
     const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
-    recSR=actx.sampleRate; D=Math.max(1,Math.round(recSR/11025)); fsW=recSR/D;
+    recSR=actx.sampleRate; fsW=fsModel();
     const srcNode=actx.createMediaStreamSource(stream);
     const proc=actx.createScriptProcessor(4096,1,1);
     const chunks=[]; let total=0; const need=Math.round(recSR*0.9);
     const btn=$('rec'); btn.classList.add('recording'); btn.textContent='● 録音中…'; btn.disabled=true;
-    setStatus('録音中…（発声してください）');
+    setStatus('録音中…（母音を一つ、のばして発声）');
     proc.onaudioprocess=e=>{ const d=e.inputBuffer.getChannelData(0); chunks.push(new Float32Array(d)); total+=d.length;
       if(total>=need){ finish(); } };
     const mute=actx.createGain(); mute.gain.value=0;
@@ -211,17 +275,23 @@ async function record(){
     setTimeout(finish, 1100);
   }catch(err){
     setStatus('マイクを使用できませんでした（許可が必要です／HTTPSページで動作します）。');
-    $('rec').classList.remove('recording'); $('rec').textContent='● 録音（母音を約1秒）'; $('rec').disabled=false;
+    $('rec').classList.remove('recording'); $('rec').textContent='● 録音（母音を一つ、約1秒）'; $('rec').disabled=false;
     console.warn(err);
   }
 }
+function updateSegOut(){
+  const so=$('segout');
+  if(so) so.textContent=`→ 管 ${segCount()} 区間・境界 ${orderFromTube()} 個 ＝ LPC 次数 ${orderFromTube()} ／ 分析 fs ${fsModel()} Hz`;
+}
 function reanalyze(){
+  updateSegOut();
   if(!rawRec) return;
-  const p=parseInt($('order').value);
-  const dec=decimate(rawRec,D);
+  fsW=fsModel();
+  const p=orderFromTube();
+  const dec=resampleTo(rawRec,recSR,fsW);
   an=analyze(dec,fsW,p);
   if(!an){ setStatus('録音が短すぎます。'); return; }
-  $('meta').innerHTML=`推定 f₀ <b>${an.f0.toFixed(0)} Hz</b> ・ 判定 <b>${an.voiced?'有声':'無声'}</b> ・ 反射係数 <b>${an.K.length}</b> 個`;
+  $('meta').innerHTML=`分析 fs <b>${fsW} Hz</b> ・ 次数 <b>${p}</b> ・ 推定 f₀ <b>${an.f0.toFixed(0)} Hz</b> ・ 判定 <b>${an.voiced?'有声':'無声'}</b> ・ 反射係数 <b>${an.K.length}</b> 個`;
   render();
 }
 function playBuf(data, sr){
@@ -233,8 +303,12 @@ function playBuf(data, sr){
 $('rec').addEventListener('click',record);
 $('playOrig').addEventListener('click',()=>{ if(rawRec) playBuf(rawRec,recSR); });
 $('playRe').addEventListener('click',()=>{ if(an){ const out=synthK(an.K,fsW,0.9,an.f0,an.gain,an.voiced,'glottal'); playBuf(out,fsW);} });
-$('order').addEventListener('input',()=>{ $('orderv').textContent=$('order').value; });
-$('order').addEventListener('change',reanalyze);
+document.querySelectorAll('#seglen button').forEach(btn=>btn.addEventListener('click',()=>{
+  document.querySelectorAll('#seglen button').forEach(b=>b.classList.toggle('on',b===btn));
+  LSEG=parseFloat(btn.dataset.mm)/1000;
+  reanalyze();
+}));
+updateSegOut();
 
 // ================= drawing =================
 function fitCanvas(cv){const r=cv.getBoundingClientRect(),dpr=window.devicePixelRatio||1;
