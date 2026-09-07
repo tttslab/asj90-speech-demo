@@ -54,13 +54,31 @@
   .tcol .lab{font-size:10px;color:var(--ink-soft);}
   .ends{display:flex;justify-content:space-between;font-size:11px;color:var(--ink-soft);font-weight:700;margin-top:2px;}
 
+  .ctlhead{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin:4px 0 8px;font-size:14px;color:#182a38;}
+  .ctlhead span{font-size:12.5px;color:#45525d;font-variant-numeric:tabular-nums;}
+  .seg{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-top:12px;}
+  .seglab{font-size:14px;font-weight:700;color:#182a38;}
+  .segbtns{display:flex;gap:6px;}
+  .segbtns button{font:inherit;font-size:14px;padding:7px 14px;border:1px solid #d9cfba;background:#fff;
+                  border-radius:999px;cursor:pointer;color:#45525d;}
+  .segbtns button.on{background:#a9531f;border-color:#a9531f;color:#fff;font-weight:700;}
+  .segout{font-size:13px;color:#45525d;font-variant-numeric:tabular-nums;}
+  .formula{margin:10px 0;padding:12px 14px;background:#fff;border:1px solid #d9cfba;border-radius:8px;
+           text-align:center;font-size:17px;font-variant-numeric:tabular-nums;color:#182a38;}
+  .formula b{color:#a9531f;}
+  /* filter circuit */
+  .fcirc{width:100%;height:auto;display:block;}
+  .ktable{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
+  .kchip{flex:1 1 90px;border:1px solid #d9cfba;border-radius:8px;padding:6px 8px;background:#fff;}
+  .kchip .kn{font-size:11px;color:#6a7480;letter-spacing:.02em;}
+  .kchip .kv{font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;}
+  .prm{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
+  .prm span{font-size:12px;color:#45525d;background:#f4f0e6;border:1px solid #e0d6c2;
+            border-radius:999px;padding:3px 10px;font-variant-numeric:tabular-nums;}
+  .eqn{margin-top:10px;font-size:13px;color:#45525d;line-height:1.6;}
+  .eqn b{color:#182a38;}
   /* parcor bars */
-  .parcor{display:flex;justify-content:space-around;gap:4px;margin-top:12px;}
-  .pc{flex:1;text-align:center;}
-  .pcbar{height:44px;display:flex;align-items:center;justify-content:center;position:relative;}
-  .pcbar .zero{position:absolute;left:0;right:0;top:50%;height:1px;background:var(--hair);}
-  .pcbar i{display:block;width:60%;border-radius:2px;position:relative;}
-  .pc .v{font-size:10px;color:var(--ink-soft);margin-top:2px;}
+  .parcor{width:100%;height:auto;display:block;margin-top:12px;}
   .pc .k{font-size:10px;color:var(--ink);font-weight:700;}
 
   /* controls */
@@ -86,16 +104,60 @@
   <h1><span class="n">①</span> 連結音響管シンセ</h1>
   <p class="sub">各管の半径を変えて母音をつくる — 境界の反射係数がそのまま PARCOR。</p>
 
+  <div class="card">
+    <h2>モデルの前提 <small>管の長さ・音速・声道長から、サンプリング周波数が決まります</small></h2>
+    <div class="eqn">
+      声道を、長さのそろった細い管をつないだもの（連結音響管）とみなします。ここでは
+      声道長は <b>18 cm</b>、音速は <b>c = 343 m/s</b> とし、管 1 区間の長さ <b>L</b> は下のスイッチで選べます。<br>
+      このモデルでは「<b>1 サンプルの間に音波が管 1 区間を往復する</b>」という対応で時間を離散化します。
+      往復距離は 2L なので、サンプリング周波数は次のように<b>自動的に決まります</b>。
+    </div>
+    <div class="formula" id="fsline"></div>
+    <div class="eqn">
+      区間の内側の境界の数がそのままフィルタの段数 P になります。上の「声道の形」の点線、その下のバー、回路図の段は、つねに同じ境界を表しています。
+      管を短くすれば段数と fs はともに増え、より細かい形状と広い帯域を扱えます。
+    </div>
+    <div class="seg">
+      <span class="seglab">管 1 区間の長さ</span>
+      <div class="segbtns" id="seglen">
+        <button data-mm="5">5 mm</button>
+        <button data-mm="10" class="on">10 mm</button>
+        <button data-mm="15">15 mm</button>
+      </div>
+      <span class="segout" id="segout"></span>
+    </div>
+    <div class="note">
+      合成は上の fs で行い、再生時のみお使いの端末のサンプリング周波数へ変換しています。
+      短い管を選ぶほど段数と fs が増えて帯域が広がり（音は明瞭に）、長い管を選ぶほど段数が減って粗いモデルになります。
+      音速は 20 ℃ の乾燥空気を想定した 343 m/s を用いています（15 ℃ なら約 340 m/s、体温に近い声道内では 350 m/s 程度とされます）。
+    </div>
+  </div>
+
   <!-- shape + spectrum -->
   <div class="card">
-    <h2>声道の形 <small>声門（左）→ 唇（右）／断面積の異なる管の連結</small></h2>
+    <h2>声道の形 <small id="tubesub">声門（左）→ 唇（右）</small></h2>
     <canvas id="tube" height="150"></canvas>
-    <div class="parcor" id="parcor"></div>
+    <svg class="parcor" id="parcor" xmlns="http://www.w3.org/2000/svg"></svg>
   </div>
 
   <div class="card">
     <h2>共鳴（フォルマント） <small>管の伝達関数スペクトル。ピーク＝フォルマント</small></h2>
     <canvas id="spec" height="150"></canvas>
+  </div>
+
+  <div class="card">
+    <h2>使用しているフィルタ回路 <small>PARCOR 合成フィルタ（格子型）— この回路がそのまま音を作っています</small></h2>
+    <svg id="fcirc" class="fcirc" viewBox="0 0 720 240" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div class="eqn">
+      境界の反射係数 <b>R<sub>m</sub> = (A<sub>m</sub> − A<sub>m+1</sub>)/(A<sub>m</sub> + A<sub>m+1</sub>)</b>（A＝断面積）を
+      <b>k<sub>m</sub></b> として各段に与え、上段（前向き）と下段（後ろ向き＝1 サンプル遅延 z⁻¹）の 2 本のレールを交差させています。
+      唇側の出力が z⁻¹ で下段へ折り返す閉ループが、口の開放端（完全反射）に対応します。
+      管 1 区間を <b>1 cm</b> とすると、1 サンプルで音波が 1 区間を往復する条件から合成レートは
+      <b>c / 2L = 17150 Hz</b> に決まります（音質より対応関係のわかりやすさを優先）。再生時のみ端末のレートへ変換しています。
+    </div>
+    <div class="prm" id="prm"></div>
+    <div class="ktable" id="ktable"></div>
+    <div class="note">下の <b>k</b> は実際に合成へ渡している値そのものです（安定化のための減衰係数を掛けたあとの数値）。図の段数と合成の段数は一致しています。スライダーを動かすとリアルタイムに更新されます。</div>
   </div>
 
   <!-- controls -->
@@ -104,10 +166,24 @@
       <button data-v="a">あ /a/</button>
       <button data-v="i">い /i/</button>
       <button data-v="u">う /u/</button>
+      <button data-v="e">え /e/</button>
+      <button data-v="o">お /o/</button>
       <button data-v="n">中立</button>
+    </div>
+    <div class="ctlhead">
+      <b>声道の形をきめる制御点（8 点）</b>
+      <span id="ctlnote"></span>
     </div>
     <div class="tubes" id="tubes"></div>
     <div class="ends"><span>声門（細い→太い）</span><span>唇</span></div>
+    <div class="note">
+      スライダーの 8 は、管の区間数（上の図の点線）とは別のものです。手で操作できるようにするための
+      <b>形の指定点</b>で、管長スイッチを変えても 8 本のままです。8 点のあいだは
+      <b>直線でつないで（線形補間）</b>実際の区間数ぶんの半径に展開し、そこから各境界の反射係数を計算しています。<br>
+      実際の声道は軟組織なので、より滑らかな曲線（スプライン、コサイン基底、Maeda の調音モデルなど）で
+      表すのが一般的です。ここでは <b>「動かした所がそのまま変わる」</b>という対応の分かりやすさを優先して、
+      あえて最も単純な線形補間にしています。そのため図の輪郭は制御点で折れ曲がります。
+    </div>
 
     <div class="row">
       <label>ピッチ f₀</label>
@@ -131,27 +207,43 @@
 
 <script>
 // ================= DSP: Kelly–Lochbaum / PARCOR lattice =================
+// vocal-tract shapes fitted so that F1/F2 match typical Japanese vowels
+// (optimised for the 17-section, 17150 Hz model used here)
 const PRESETS = {
-  a:[0.63,1.05,1.17,1.0,0.52,0.45,0.56,0.35],
-  i:[0.32,0.34,0.44,0.83,1.14,1.03,0.7,0.58],
-  u:[0.2,0.78,1.18,1.25,1.1,0.66,1.37,0.94],
+  a:[1.12,1.26,1.29,0.92,0.48,0.44,0.60,0.37],   // F1 800  F2 1206
+  i:[0.48,0.29,0.43,0.75,0.91,0.80,0.54,0.61],   // F1 301  F2 2299
+  u:[0.37,1.07,1.00,0.71,0.68,0.78,0.85,0.76],   // F1 377  F2 1005
+  e:[0.74,0.78,0.89,1.03,1.10,0.99,0.80,0.77],   // F1 498  F2 1901
+  o:[0.59,1.25,1.42,0.95,0.42,0.68,0.95,0.63],   // F1 498  F2  909
   n:[1,1,1,1,1,1,1,1],
 };
 const KDAMP=0.97, RMIN=0.15, RMAX=1.8;
 let radii = PRESETS.a.slice();
 let f0=120, src='glottal', autoPlay=true;
 
-function lerpRadii(ctrl,M){const n=ctrl.length,out=new Float64Array(M);
+// 8 control points -> M section radii, by simple piecewise-linear interpolation.
+// (Chosen for transparency: moving one slider changes only its neighbourhood.
+//  Real vocal tracts are smoother; splines / articulatory models are the usual choice.)
+function interpolateRadii(ctrl,M){const n=ctrl.length,out=new Float64Array(M);
   for(let j=0;j<M;j++){const pos=j/(M-1)*(n-1),lo=Math.floor(pos),hi=Math.min(n-1,lo+1),fr=pos-lo;
     out[j]=Math.max(0.04,ctrl[lo]*(1-fr)+ctrl[hi]*fr);}return out;}
-function reflK(ctrl,M){const R=lerpRadii(ctrl,M),A=[];for(let i=0;i<M;i++)A.push(R[i]*R[i]);
+function reflK(ctrl,M){const R=interpolateRadii(ctrl,M),A=[];for(let i=0;i<M;i++)A.push(R[i]*R[i]);
   const K=new Float64Array(M-1);for(let m=0;m<M-1;m++)K[m]=(A[m]-A[m+1])/(A[m]+A[m+1]);return K;}
 function ctrlParcor(ctrl){const A=ctrl.map(r=>r*r),Kc=[];
   for(let i=0;i<ctrl.length-1;i++)Kc.push((A[i]-A[i+1])/(A[i]+A[i+1]));return Kc;}
 function rosenberg(ph){const Tp=0.4,Tn=0.16;
   if(ph<Tp)return 0.5*(1-Math.cos(Math.PI*ph/Tp));
   if(ph<Tp+Tn)return Math.cos(Math.PI*(ph-Tp)/(2*Tn));return 0;}
-function sectionsFor(fs){return Math.max(30,Math.round(2*fs*0.175/343))+1;}
+// --- physical model: one tube section = LSEG metres ---
+const CSND=343, VTLEN=0.18;                 // 343 m/s (20 degC, dry air), 18 cm vocal tract
+let LSEG=0.01;                              // length of one tube section (switchable: 5/10/15 mm)
+let FS_MODEL=Math.round(CSND/(2*LSEG));     // one sample = round trip of one section
+function setSegLen(mm){
+  LSEG=mm/1000;
+  FS_MODEL=Math.round(CSND/(2*LSEG));
+  render();
+}
+function sectionsFor(fs){return Math.max(4,Math.round(VTLEN/LSEG));}  // segments; junctions = segments-1
 
 function synth(ctrl,fs,dur,f0,src){
   const M=sectionsFor(fs), K=reflK(ctrl,M), p=K.length, Ku=K.map(k=>k*KDAMP);
@@ -185,15 +277,28 @@ function fft(re,im){const n=re.length;for(let i=1,j=0;i<n;i++){let bit=n>>1;for(
       re[i+k]=ur+vr;im[i+k]=ui+vi;re[i+k+len/2]=ur-vr;im[i+k+len/2]=ui-vi;
       const nr=cwr*wr-cwi*wi;cwi=cwr*wi+cwi*wr;cwr=nr;}}}}
 
+// band-limited-enough linear resampler (model rate -> device rate)
+function resample(x,fsIn,fsOut){
+  if(Math.abs(fsIn-fsOut)<1) return x;
+  const r=fsOut/fsIn, N=Math.floor(x.length*r), y=new Float32Array(N);
+  for(let i=0;i<N;i++){
+    const t=i/r, j=Math.floor(t), fr=t-j;
+    const a=x[j]||0, b=x[j+1!==undefined?j+1:j]||a;
+    y[i]=a+(b-a)*fr;
+  }
+  return y;
+}
+
 // ================= Audio playback (offline synth -> buffer) =================
 let actx=null;
 function play(){
   try{
     if(!actx) actx=new (window.AudioContext||window.webkitAudioContext)();
     if(actx.state==='suspended') actx.resume();
-    const fs=actx.sampleRate;
-    const out=synth(radii,fs,1.1,f0,src);
-    const buf=actx.createBuffer(1,out.length,fs);
+    const fsOut=actx.sampleRate;
+    const lo=synth(radii,FS_MODEL,1.1,f0,src);   // synthesise at the physical model rate
+    const out=resample(lo,FS_MODEL,fsOut);       // upsample for stable playback
+    const buf=actx.createBuffer(1,out.length,fsOut);
     buf.copyToChannel(out,0);
     const s=actx.createBufferSource(); s.buffer=buf;
     const g=actx.createGain(); g.gain.value=0.9;
@@ -233,9 +338,14 @@ function clearPreset(){presetEls.forEach(b=>b.classList.remove('on'));}
 
 // controls
 const f0El=document.getElementById('f0'),f0v=document.getElementById('f0v');
-f0El.addEventListener('input',()=>{f0=parseInt(f0El.value);f0v.textContent=f0+' Hz';});
+f0El.addEventListener('input',()=>{f0=parseInt(f0El.value);f0v.textContent=f0+' Hz';drawCircuit();});
 f0El.addEventListener('change',()=>{ if(autoPlay) play(); });
-document.getElementById('src').addEventListener('change',e=>{src=e.target.value; if(autoPlay) play();});
+document.getElementById('src').addEventListener('change',e=>{src=e.target.value; drawCircuit(); if(autoPlay) play();});
+document.querySelectorAll('#seglen button').forEach(btn=>btn.addEventListener('click',()=>{
+  document.querySelectorAll('#seglen button').forEach(b=>b.classList.toggle('on',b===btn));
+  setSegLen(parseFloat(btn.dataset.mm));
+  if(autoPlay) play();
+}));
 document.getElementById('play').addEventListener('click',play);
 document.getElementById('auto').addEventListener('change',e=>autoPlay=e.target.checked);
 
@@ -248,7 +358,7 @@ function fitCanvas(cv){const r=cv.getBoundingClientRect();const dpr=window.devic
 
 function drawTube(){
   const {g,w,h}=fitCanvas(tube); g.clearRect(0,0,w,h);
-  const M=120,R=lerpRadii(radii,M),cy=h/2,pad=10;
+  const M=120,R=interpolateRadii(radii,M),cy=h/2,pad=10;
   const maxR=RMAX; const scale=(h/2-pad)/maxR;
   // filled tube (mirror)
   g.beginPath(); g.moveTo(pad, cy-R[0]*scale);
@@ -259,17 +369,129 @@ function drawTube(){
   for(let s=0;s<=6;s++)grad.addColorStop(s/6,rampColor(s/6));
   g.fillStyle=grad; g.globalAlpha=0.85; g.fill(); g.globalAlpha=1;
   g.strokeStyle='#182a38'; g.lineWidth=1.2; g.stroke();
-  // junction ticks at 8 control positions
-  g.strokeStyle='rgba(24,42,56,.28)';g.lineWidth=1;g.setLineDash([3,3]);
-  for(let i=1;i<7;i++){const x=pad+(w-2*pad)*i/7;g.beginPath();g.moveTo(x,cy-R[Math.round(i/7*(M-1))]*scale);g.lineTo(x,cy+R[Math.round(i/7*(M-1))]*scale);g.stroke();}
+  // junction ticks: the actual model boundaries (Nseg segments -> Nseg-1 junctions)
+  const Nseg=sectionsFor(FS_MODEL);
+  g.strokeStyle='rgba(24,42,56,.30)';g.lineWidth=1;g.setLineDash([3,3]);
+  for(let i=1;i<Nseg;i++){
+    const t=i/Nseg, x=pad+(w-2*pad)*t, ri=R[Math.round(t*(M-1))];
+    g.beginPath();g.moveTo(x,cy-ri*scale);g.lineTo(x,cy+ri*scale);g.stroke();
+  }
   g.setLineDash([]);
   // labels
   g.fillStyle='#4a5763';g.font='11px sans-serif';
   g.fillText('声門',pad+2,h-4); g.fillText('唇',w-pad-16,h-4);
 }
 
+
+// ============ filter circuit rendering ============
+const NS='http://www.w3.org/2000/svg';
+function el(n,a){const e=document.createElementNS(NS,n);for(const k in a)e.setAttribute(k,a[k]);return e;}
+function drawCircuit(){
+  const svg=document.getElementById('fcirc'); if(!svg) return;
+  while(svg.firstChild) svg.removeChild(svg.firstChild);
+  const M=sectionsFor(FS_MODEL);                 // model points
+  const Kc=Array.from(reflK(radii,M));           // ACTUAL reflection coefficients used by synth
+  const Ku=Kc.map(k=>k*KDAMP);                   // with stabilising damping
+  const W=1180,H=330,yT=96,yB=232,x0=52,x1=1108;
+  svg.setAttribute('viewBox','0 0 1180 330');
+  const n=Kc.length, dx=(x1-x0)/(n+0.6);
+  const defs=el('defs');
+  const mk=el('marker',{id:'ah',markerWidth:'8',markerHeight:'8',refX:'6',refY:'3',orient:'auto'});
+  mk.appendChild(el('path',{d:'M0,0 L6,3 L0,6 Z',fill:'#182a38'})); defs.appendChild(mk); svg.appendChild(defs);
+  // rails
+  svg.appendChild(el('line',{x1:x0-30,y1:yT,x2:x1+34,y2:yT,stroke:'#182a38','stroke-width':'3','marker-end':'url(#ah)'}));
+  svg.appendChild(el('line',{x1:x0-30,y1:yB,x2:x1+34,y2:yB,stroke:'#182a38','stroke-width':'3'}));
+  const t1=el('text',{x:x0-34,y:yT-14,'font-size':'16',fill:'#45525d','font-weight':'700'}); t1.textContent='e[n] 声門側'; svg.appendChild(t1);
+  const t2=el('text',{x:x1+30,y:yT-14,'font-size':'16',fill:'#a9531f','font-weight':'700','text-anchor':'end'}); t2.textContent='唇側 s[n]'; svg.appendChild(t2);
+  for(let i=0;i<n;i++){
+    const cx=x0+dx*(i+0.8), sx=cx-dx*0.55;
+    svg.appendChild(el('line',{x1:sx,y1:yB,x2:cx-6,y2:yT+6,stroke:'#182a38','stroke-width':'1.5','marker-end':'url(#ah)'}));
+    svg.appendChild(el('line',{x1:sx,y1:yT,x2:cx-6,y2:yB-6,stroke:'#182a38','stroke-width':'1.5','marker-end':'url(#ah)'}));
+    [yT,yB].forEach(yy=>{
+      svg.appendChild(el('circle',{cx:cx,cy:yy,r:'9',fill:'#fff',stroke:'#182a38','stroke-width':'1.8'}));
+      const p=el('text',{x:cx,y:yy+4.5,'font-size':'13','text-anchor':'middle',fill:'#182a38','font-weight':'700'});p.textContent='+';svg.appendChild(p);
+    });
+    const col=rampColor((i+0.5)/(n-1||1));
+    // k label above the crossing, value below; alternate rows so dense stages stay legible
+    const up = (i%2===0);
+    const ly = up ? (yT+yB)/2-12 : (yT+yB)/2+22;
+    const kl=el('text',{x:(sx+cx)/2,y:ly,'font-size':'17',fill:col,'font-weight':'700','text-anchor':'middle'});
+    kl.textContent='k'+(i+1); svg.appendChild(kl);
+
+    if(i<n-1){
+      const zx=cx+dx*0.46;
+      svg.appendChild(el('rect',{x:zx-14,y:yB-10,width:'28',height:'20',rx:'4',fill:'#fff',stroke:'#182a38','stroke-width':'1.3'}));
+      const zt=el('text',{x:zx,y:yB+5,'font-size':'11','text-anchor':'middle',fill:'#182a38'});zt.textContent='z⁻¹';svg.appendChild(zt);
+    }
+  }
+  // lip-side closure loop
+  const cx=x1+18;
+  svg.appendChild(el('line',{x1:cx,y1:yT,x2:cx,y2:yB,stroke:'#182a38','stroke-width':'1.8'}));
+  svg.appendChild(el('rect',{x:cx-16,y:(yT+yB)/2-11,width:'32',height:'22',rx:'4',fill:'#fff',stroke:'#182a38','stroke-width':'1.6'}));
+  const zt2=el('text',{x:cx,y:(yT+yB)/2+5,'font-size':'12','text-anchor':'middle',fill:'#182a38'});zt2.textContent='z⁻¹';svg.appendChild(zt2);
+  svg.appendChild(el('path',{d:`M${cx-6},${yB-8} L${cx},${yB} L${cx+6},${yB-8} Z`,fill:'#182a38'}));
+  const cap=el('text',{x:(x0+x1)/2,y:300,'font-size':'12','text-anchor':'middle',fill:'#a9531f','font-weight':'700'});
+  cap.setAttribute('font-size','16');cap.textContent=`${n} 段（境界 ${n} 個）＝ 管 ${n+1} 区間 × ${(LSEG*1000)} mm ＝ 声道長 ${((n+1)*LSEG*100).toFixed(1)} cm`; svg.appendChild(cap);
+
+  // parameter chips
+  const fsOut=(window.actx&&actx.sampleRate)||48000;
+  const f0v=+document.getElementById('f0').value;
+  const srcTxt=document.getElementById('src').selectedOptions[0].textContent;
+  document.getElementById('prm').innerHTML=
+    [`管 1 区間 = ${LSEG*1000} mm`,`管 ${sectionsFor(FS_MODEL)} 区間 → 境界 ${n} 個`,`段数 P = ${n}（全図で共通）`,
+     `合成 fs = ${FS_MODEL} Hz（= c / 2L）`,`帯域 = ${(FS_MODEL/2/1000).toFixed(2)} kHz まで`,`再生 fs = ${fsOut} Hz（アップサンプリング）`,
+     `音速 c = ${CSND} m/s`,`減衰 KDAMP = ${KDAMP}`,`f₀ = ${f0v} Hz`,`音源 = ${srcTxt}`
+    ].map(t=>`<span>${t}</span>`).join('');
+  const segs=sectionsFor(FS_MODEL);
+  const fsl=document.getElementById('fsline');
+  if(fsl) fsl.innerHTML=`fs = c / (2L) = ${CSND} / (2 × ${LSEG}) = <b>${FS_MODEL} Hz</b>`;
+  const so=document.getElementById('segout');
+  if(so) so.textContent=`→ 管 ${segs} 区間・境界 ${segs-1} 個・fs ${FS_MODEL} Hz（帯域 ${(FS_MODEL/2/1000).toFixed(2)} kHz）`;
+  const cn=document.getElementById('ctlnote');
+  if(cn) cn.textContent=`→ 線形補間で ${segs} 区間（境界 ${segs-1} 個）の半径に展開`;
+  const ts=document.getElementById('tubesub');
+  if(ts) ts.textContent=`声門（左）→ 唇（右）／${LSEG*1000} mm の管 ${segs} 区間・境界 ${segs-1} 個（点線）`;
+  document.getElementById('ktable').innerHTML=
+    Ku.map((k,i)=>`<div class="kchip"><div class="kn">k${i+1}（境界 ${i+1}）</div><div class="kv">${k.toFixed(3)}</div></div>`).join('');
+}
+
 function drawParcor(){
-  const Kc=ctrlParcor(radii); const box=document.getElementById('parcor'); box.innerHTML='';
+  const K=Array.from(reflK(radii,sectionsFor(FS_MODEL)));
+  const svg=document.getElementById('parcor'); if(!svg) return;
+  while(svg.firstChild) svg.removeChild(svg.firstChild);
+  const n=K.length, W=1000, H=150, padL=26, padR=14, top=18, mid=76, half=44;
+  svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
+  const iw=(W-padL-padR)/n, bw=Math.max(3,Math.min(26,iw*0.62));
+  // zero axis
+  svg.appendChild(el('line',{x1:padL-6,y1:mid,x2:W-padR+6,y2:mid,stroke:'#cfc4b1','stroke-width':'1.4'}));
+  const zl=el('text',{x:padL-10,y:mid+4,'font-size':'12',fill:'#8a8172','text-anchor':'end'});zl.textContent='0';svg.appendChild(zl);
+  // label thinning: show at most ~12 labels, always the first and last
+  const step=Math.max(1,Math.ceil(n/12));
+  // auto vertical scale: short tubes give small reflection coefficients
+  const amax=Math.max(...K.map(Math.abs));
+  const vmax=Math.max(0.1,Math.min(1,Math.ceil(amax*10)/10));
+  for(let i=0;i<n;i++){
+    const cx=padL+iw*(i+0.5);
+    const mag=Math.min(1,Math.abs(K[i])/vmax), hgt=Math.max(1.5,mag*half);
+    const y=K[i]>=0? mid-hgt : mid;
+    svg.appendChild(el('rect',{x:cx-bw/2,y:y,width:bw,height:hgt,rx:'2',
+                               fill:rampColor((i+0.5)/Math.max(1,n-1))}));
+    const show=(i===0||i===n-1||i%step===0);
+    if(show){
+      const t=el('text',{x:cx,y:H-18,'font-size':'13',fill:'#182a38','text-anchor':'middle','font-weight':'700'});
+      t.textContent='R'+(i+1); svg.appendChild(t);
+      const v=el('text',{x:cx,y:H-4,'font-size':'11.5',fill:'#6a7480','text-anchor':'middle'});
+      v.textContent=K[i].toFixed(2); svg.appendChild(v);
+    }
+  }
+  const gl=el('text',{x:padL,y:top-4,'font-size':'12',fill:'#8a8172'});gl.textContent='声門側';svg.appendChild(gl);
+  const ll=el('text',{x:W-padR,y:top-4,'font-size':'12',fill:'#8a8172','text-anchor':'end'});ll.textContent='唇側';svg.appendChild(ll);
+  const sc=el('text',{x:padL+70,y:top-4,'font-size':'11.5',fill:'#8a8172'});
+  sc.textContent=`縦軸 ±${vmax.toFixed(1)}`; svg.appendChild(sc);
+  return;
+}
+function drawParcorOld(){
+  const Kc=Array.from(reflK(radii,sectionsFor(FS_MODEL))); const box=document.getElementById('parcor'); box.innerHTML='';
   Kc.forEach((k,i)=>{
     const pc=document.createElement('div');pc.className='pc';
     const bar=document.createElement('div');bar.className='pcbar';
@@ -277,10 +499,10 @@ function drawParcor(){
     const bi=document.createElement('i');
     const mag=Math.min(1,Math.abs(k)); const hgt=Math.round(mag*20);
     bi.style.height=hgt+'px';
-    bi.style.background=rampColor((i+0.5)/7);
+    bi.style.background=rampColor((i+0.5)/Math.max(1,Kc.length-1));
     bi.style.marginTop=(k>=0? (20-hgt) : 20)+'px'; // above zero if +, below if -
     bar.appendChild(zero);bar.appendChild(bi);
-    const kv=document.createElement('div');kv.className='k';kv.textContent='r'+(i+1);
+    const kv=document.createElement('div');kv.className='k';kv.textContent='R'+(i+1);
     const vv=document.createElement('div');vv.className='v';vv.textContent=k.toFixed(2);
     pc.appendChild(bar);pc.appendChild(kv);pc.appendChild(vv);box.appendChild(pc);
   });
@@ -288,7 +510,7 @@ function drawParcor(){
 
 function drawSpec(){
   const {g,w,h}=fitCanvas(spec); g.clearRect(0,0,w,h);
-  const fsD=44100, NF=4096; const ir=impulseResponse(radii,fsD,NF);
+  const fsD=FS_MODEL, NF=4096; const ir=impulseResponse(radii,fsD,NF);
   const re=new Float64Array(NF),im=new Float64Array(NF);
   for(let i=0;i<NF;i++){const win=0.5-0.5*Math.cos(2*Math.PI*i/(NF-1));re[i]=ir[i]*win;}
   fft(re,im);
@@ -305,17 +527,24 @@ function drawSpec(){
   g.strokeStyle='#22708a';g.lineWidth=2;g.stroke();
   g.lineTo(gx(1),h-pad);g.lineTo(gx(0),h-pad);g.closePath();g.fillStyle='rgba(34,112,138,.10)';g.fill();
   // formant peaks
-  const sm=mag.map((v,i)=>{let s=0,c=0;for(let d=-4;d<=4;d++){const j=i+d;if(j>=0&&j<mag.length){s+=mag[j];c++;}}return s/c;});
-  const pk=[];for(let i=3;i<bins-3;i++){if(sm[i]>sm[i-1]&&sm[i]>sm[i+1]&&sm[i]>sm[i-3]&&sm[i]>sm[i+3]){pk.push([i,sm[i]]);}}
+  // smooth over a fixed frequency span (independent of fs / NF)
+  const W=Math.max(2,Math.round(40/(fsD/NF)));           // ~40 Hz half-width
+  const sm=mag.map((v,i)=>{let s=0,c=0;for(let d=-W;d<=W;d++){const j=i+d;if(j>=0&&j<mag.length){s+=mag[j];c++;}}return s/c;});
+  const D=Math.max(2,Math.round(60/(fsD/NF)));           // peak must dominate ~60 Hz around
+  const pk=[];for(let i=D;i<bins-D;i++){if(sm[i]>sm[i-1]&&sm[i]>=sm[i+1]&&sm[i]>sm[i-D]&&sm[i]>sm[i+D]){pk.push([i,sm[i]]);}}
   pk.sort((a,b)=>b[1]-a[1]);
-  pk.slice(0,3).sort((a,b)=>a[0]-b[0]).forEach((p,idx)=>{
+  // keep the strongest peaks, then order by frequency and drop ones too close together
+  const sep=Math.round(150/(fsD/NF));
+  const chosen=[]; 
+  pk.slice(0,10).sort((a,b)=>a[0]-b[0]).forEach(p=>{ if(!chosen.length||p[0]-chosen[chosen.length-1][0]>sep) chosen.push(p); });
+  chosen.slice(0,4).forEach((p,idx)=>{
     const f=Math.round(p[0]*fsD/NF),x=gx(p[0]/bins);
     g.strokeStyle='#a9531f';g.setLineDash([4,3]);g.beginPath();g.moveTo(x,pad);g.lineTo(x,h-pad);g.stroke();g.setLineDash([]);
     g.fillStyle='#a9531f';g.font='bold 11px sans-serif';g.fillText('F'+(idx+1)+' '+f,Math.min(w-56,x+3),pad+12+idx*13);
   });
 }
 
-function render(){ drawTube(); drawParcor(); drawSpec(); }
+function render(){ drawTube(); drawParcor(); drawSpec(); drawCircuit(); }
 
 // init
 setPreset(presetEls[0]);
