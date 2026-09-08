@@ -65,6 +65,13 @@
   .score.best .fill{background:var(--accent);} .score.best .nm{color:var(--accent);}
   .score .cv{font-variant-numeric:tabular-nums;font-size:12px;color:var(--ink-soft);min-width:46px;text-align:right;}
 
+  .seg{display:flex;align-items:center;flex-wrap:wrap;gap:10px;}
+  .seglab{font-size:14px;font-weight:700;color:var(--ink);}
+  .segbtns{display:flex;gap:6px;}
+  .segbtns button{font:inherit;font-size:14px;padding:7px 14px;border:1px solid var(--hair);background:#fff;
+                  border-radius:999px;cursor:pointer;color:var(--ink-soft);}
+  .segbtns button.on{background:#a9531f;border-color:#a9531f;color:#fff;font-weight:700;}
+  .segout{font-size:12.5px;color:var(--ink-soft);font-variant-numeric:tabular-nums;}
   .note{font-size:12px;color:var(--ink-soft);background:rgba(169,153,125,.1);border:1px dashed var(--hair-strong);border-radius:10px;padding:9px 11px;margin-top:12px;}
   .foot{margin-top:22px;font-size:12px;color:var(--ink-soft);text-align:center;}
 </style>
@@ -77,6 +84,24 @@
   <p class="sub">単語を登録 → テスト録音を時間伸縮でマッチング → いちばん近い語を答える。</p>
 
   <!-- enroll -->
+  <div class="card">
+    <div class="seg">
+      <span class="seglab">管 1 区間の長さ</span>
+      <div class="segbtns" id="seglen">
+        <button data-mm="5">5 mm</button>
+        <button data-mm="10" class="on">10 mm</button>
+        <button data-mm="15">15 mm</button>
+      </div>
+      <span class="segout" id="segout"></span>
+    </div>
+    <div class="note">
+      デモ①②と同じ管モデルの約束を使います。管 1 区間の長さから分析のサンプリング周波数
+      <b>fs = c / 2L</b> と <b>LPC 次数</b>（＝区間の境界の数）が決まり、そこから求めた
+      <b>LPC ケプストラム</b>を照合の特徴量にしています。<br>
+      設定を変えたら、テンプレートを登録し直してください（特徴量が変わるため）。
+    </div>
+  </div>
+
   <div class="card">
     <h2>1. 単語を登録</h2>
     <p class="desc">語の名前を決めて、それぞれ1回ずつ録音します。同じ人が登録・テストするとよく当たります（話者依存）。</p>
@@ -104,7 +129,7 @@
     <canvas id="grid"></canvas>
   </div>
 
-  <div class="note">録音・特徴抽出（MFCC）・DTW照合はすべて端末のブラウザ内で行われ、音声は送信されません。マイクにはブラウザの許可が必要で、HTTPSのページで動作します。登録内容はこの端末内に一時保存されます。</div>
+  <div class="note">録音・特徴抽出（LPCケプストラム）・DTW照合はすべて端末のブラウザ内で行われ、音声は送信されません。マイクにはブラウザの許可が必要で、HTTPSのページで動作します。登録内容はこの端末内に一時保存されます。</div>
   <p class="foot">篠崎 隆宏（東京科学大学）・大谷 大和（情報通信研究機構）／ 日本音響学会 創立90周年記念</p>
 </div>
 
@@ -119,6 +144,88 @@ function melFB(nfilt,NFFT,fs){const mel=f=>2595*Math.log10(1+f/700),imel=m=>700*
     for(let k=bin[m-1];k<bin[m];k++)if(k>=0&&k<f.length)f[k]=(k-bin[m-1])/(bin[m]-bin[m-1]+1e-9);
     for(let k=bin[m];k<bin[m+1];k++)if(k>=0&&k<f.length)f[k]=(bin[m+1]-k)/(bin[m+1]-bin[m]+1e-9);
     FB.push(f);}return FB;}
+// --- tube-model settings shared with demos (1) and (2) ---
+const CSND=343, VTLEN=0.18;
+let LSEG=0.010;
+function fsModel(){ return Math.round(CSND/(2*LSEG)); }
+function segCount(){ return Math.max(4,Math.round(VTLEN/LSEG)); }
+function lpcOrder(){ return segCount()-1; }            // junctions = LPC order
+function resampleTo(x,fsIn,fsOut){
+  if(Math.abs(fsIn-fsOut)<1) return Float64Array.from(x);
+  let src=x;
+  if(fsOut<fsIn){
+    const fc=0.45*fsOut/fsIn, n=63, h=new Float64Array(n); let sum=0;
+    for(let i=0;i<n;i++){ const t=i-(n-1)/2;
+      const sinc=(t===0)?2*fc:Math.sin(2*Math.PI*fc*t)/(Math.PI*t);
+      h[i]=sinc*(0.54-0.46*Math.cos(2*Math.PI*i/(n-1))); sum+=h[i]; }
+    for(let i=0;i<n;i++) h[i]/=sum;
+    const y=new Float64Array(x.length);
+    for(let i=0;i<x.length;i++){ let a=0;
+      for(let k=0;k<n;k++){ const j=i+k-((n-1)>>1); if(j>=0&&j<x.length) a+=x[j]*h[k]; }
+      y[i]=a; }
+    src=y;
+  }
+  const r=fsOut/fsIn,N=Math.floor(src.length*r),out=new Float64Array(N);
+  for(let i=0;i<N;i++){ const t=i/r,j=Math.floor(t),fr=t-j;
+    const a=src[j]||0,b=(j+1<src.length)?src[j+1]:a; out[i]=a+(b-a)*fr; }
+  return out;
+}
+// Levinson-Durbin -> LPC coefficients a[1..p]
+function lpcFrame(f,p){
+  const W=f.length, R=new Float64Array(p+1);
+  for(let l=0;l<=p;l++){ let s=0; for(let n=l;n<W;n++) s+=f[n]*f[n-l]; R[l]=s; }
+  if(R[0]<1e-12) return null;
+  const a=new Float64Array(p+1); a[0]=1; let E=R[0];
+  for(let i=1;i<=p;i++){
+    let acc=R[i]; for(let j=1;j<i;j++) acc+=a[j]*R[i-j];
+    const k=-acc/E; const an=Float64Array.from(a);
+    for(let j=1;j<i;j++) an[j]=a[j]+k*a[i-j];
+    an[i]=k; a.set(an); E*=(1-k*k);
+    if(E<=1e-12) return null;
+  }
+  return {a,E};
+}
+// LPC coefficients -> LPC cepstrum c[1..nc]  (recursion from the all-pole model)
+function lpcCepstrum(a,p,nc){
+  const c=new Float64Array(nc);
+  for(let m=1;m<=nc;m++){
+    let s=0;
+    for(let k=1;k<m;k++){ if(m-k<=p) s+=(1-k/m)*a[m-k]*c[k-1]; }
+    const am=(m<=p)? a[m] : 0;
+    c[m-1]=-am - s;
+  }
+  return c;
+}
+// front-end: LPC cepstrum at the tube-derived rate/order (replaces MFCC)
+function lpccFeat(x,fs,p){
+  const Nf=Math.round(0.025*fs),hop=Math.round(0.010*fs),nc=12;
+  if(Nf<p+8) return [];
+  const pe=new Float64Array(x.length);
+  for(let n=0;n<x.length;n++) pe[n]=x[n]-0.97*(x[n-1]||0);
+  const win=new Float64Array(Nf);
+  for(let n=0;n<Nf;n++) win[n]=0.54-0.46*Math.cos(2*Math.PI*n/(Nf-1));
+  const lifter=new Float64Array(nc);
+  for(let i=0;i<nc;i++) lifter[i]=1+ (nc/2)*Math.sin(Math.PI*(i+1)/nc);
+  const frames=[],energies=[];
+  for(let st=0;st+Nf<=pe.length;st+=hop){
+    const f=new Float64Array(Nf); let e=0;
+    for(let n=0;n<Nf;n++){ const v=pe[st+n]*win[n]; f[n]=v; e+=v*v; }
+    const r=lpcFrame(f,p);
+    if(!r){ continue; }
+    const c=lpcCepstrum(r.a,p,nc);
+    for(let i=0;i<nc;i++) c[i]*=lifter[i];
+    frames.push(c); energies.push(Math.log(e+1e-9));
+  }
+  if(!frames.length) return [];
+  const mx=Math.max(...energies),thr=mx-4.0;
+  let s0=0,ec=frames.length-1;
+  while(s0<frames.length&&energies[s0]<thr)s0++;
+  while(ec>s0&&energies[ec]<thr)ec--;
+  let sel=frames.slice(s0,ec+1); if(sel.length<3) sel=frames;
+  const dim=nc,mean=new Float64Array(dim);
+  for(const fr of sel) for(let d=0;d<dim;d++) mean[d]+=fr[d]/sel.length;
+  return sel.map(fr=>Array.from(fr,(v,d)=>v-mean[d]));   // cepstral mean normalisation
+}
 function mfcc(x,fs){
   const Nf=Math.round(0.025*fs),hop=Math.round(0.010*fs),NFFT=nextPow2(Nf),nfilt=26,ncep=12;
   const FB=melFB(nfilt,NFFT,fs),frames=[],energies=[];
@@ -180,9 +287,19 @@ function energyRMS(x){let e=0;for(let i=0;i<x.length;i++)e+=x[i]*x[i];return Mat
 // ================= state / storage =================
 const DEFAULT=['いち','に','さん','よん'];
 let templates=[]; // {label, frames}
-function load(){ try{const s=localStorage.getItem('dtw_tpl');if(s)templates=JSON.parse(s);}catch(e){} 
+function load(){ try{const s=localStorage.getItem('dtw_tpl');if(s)templates=JSON.parse(s);
+                     const g=localStorage.getItem('dtw_lseg');
+                     if(g){ LSEG=parseFloat(g);
+                       document.querySelectorAll('#seglen button').forEach(b=>
+                         b.classList.toggle('on', Math.abs(parseFloat(b.dataset.mm)/1000-LSEG)<1e-9)); }
+                   }catch(e){} 
   if(!templates.length) templates=DEFAULT.map(l=>({label:l,frames:null})); }
-function save(){ try{localStorage.setItem('dtw_tpl',JSON.stringify(templates));}catch(e){} }
+function save(){ try{localStorage.setItem('dtw_tpl',JSON.stringify(templates));
+                     localStorage.setItem('dtw_lseg',String(LSEG));}catch(e){} }
+function updateSegOut(){
+  const so=document.getElementById('segout');
+  if(so) so.textContent=`→ 管 ${segCount()} 区間・境界 ${lpcOrder()} 個 ＝ LPC 次数 ${lpcOrder()} ／ 分析 fs ${fsModel()} Hz`;
+}
 load();
 
 const $=id=>document.getElementById(id);
@@ -207,7 +324,7 @@ function enroll(idx,btn){
   recordSamples(1.1,(buf)=>{
     btn.classList.remove('rec');btn.textContent='録り直す';
     if(energyRMS(buf)<0.004){ $('status').textContent='声が小さいようです。もう一度、はっきり発声してください。'; refresh(); return; }
-    const fr=mfcc(decimate(buf),fsW);
+    const fr=lpccFeat(resampleTo(buf,recSR,fsModel()),fsModel(),lpcOrder());
     templates[idx].frames=fr;save();refresh();
     $('status').textContent=`「${templates[idx].label}」を登録しました（${fr.length}フレーム）。`;
   },(err)=>{ btn.classList.remove('rec'); $('status').textContent='マイクを使用できませんでした（許可が必要です／HTTPSで動作）。'; },
@@ -221,7 +338,7 @@ $('test').addEventListener('click',()=>{
   recordSamples(1.1,(buf)=>{
     btn.classList.remove('rec');btn.textContent='● もう一度 テスト録音';
     if(energyRMS(buf)<0.004){ $('status').textContent='声が小さいようです。もう一度。'; return; }
-    const feat=mfcc(decimate(buf),fsW);
+    const feat=lpccFeat(resampleTo(buf,recSR,fsModel()),fsModel(),lpcOrder());
     const enr=templates.filter(t=>t.frames&&t.frames.length);
     let results=enr.map(t=>({label:t.label, r:dtw(feat,t.frames)}));
     results.sort((a,b)=>a.r.cost-b.r.cost);
@@ -279,7 +396,19 @@ function drawGrid(R){
 
 window.addEventListener('resize',()=>drawGrid(window.__lastR||null));
 const _dg=drawGrid; drawGrid=function(R){window.__lastR=R;return _dg(R);};
-window.addEventListener('load',()=>{refresh();drawGrid(null);});
+document.querySelectorAll('#seglen button').forEach(btn=>btn.addEventListener('click',()=>{
+  const mm=parseFloat(btn.dataset.mm);
+  if(Math.abs(mm/1000-LSEG)<1e-9) return;
+  document.querySelectorAll('#seglen button').forEach(b=>b.classList.toggle('on',b===btn));
+  LSEG=mm/1000; updateSegOut();
+  const had=templates.some(t=>t.frames&&t.frames.length);
+  templates.forEach(t=>t.frames=null); save(); refresh();
+  $('result').style.display='none'; drawGrid(null);
+  $('status').textContent = had
+    ? `管 ${mm} mm（LPC 次数 ${lpcOrder()}／fs ${fsModel()} Hz）に変更しました。特徴量が変わるため、登録し直してください。`
+    : `管 ${mm} mm（LPC 次数 ${lpcOrder()}／fs ${fsModel()} Hz）に設定しました。`;
+}));
+window.addEventListener('load',()=>{refresh();updateSegOut();drawGrid(null);});
 refresh();drawGrid(null);
 </script>
 </body>
