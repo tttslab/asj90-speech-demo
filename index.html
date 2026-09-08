@@ -175,6 +175,22 @@
     font-size:10.5px;
     font-weight:700;
   }
+  .demo.now{--accent:var(--e5);}
+  .demo.now .num{font-size:19px;letter-spacing:.02em;}
+  .warn{
+    margin:9px 0 0 33px;
+    padding:8px 10px;
+    border:1px solid #c98a5a;
+    border-left:4px solid var(--e1);
+    border-radius:8px;
+    background:rgba(169,83,31,.07);
+    color:var(--ink);
+    font-size:11.5px;
+    line-height:1.55;
+  }
+  .warn b{color:var(--e1);}
+  .ext{margin:4px 0 0 33px;font-size:11px;color:var(--ink-soft);word-break:break-all;}
+  .now-lead{margin:0 0 12px;font-size:13px;color:var(--ink-soft);}
   .note{
     margin-top:18px;
     padding:11px 12px;
@@ -270,10 +286,70 @@
     </a>
   </nav>
 
+  <div class="section-title">
+    <h2>いまの音声技術を触る</h2>
+    <span>THEN AND NOW</span>
+  </div>
+  <p class="now-lead">
+    ①〜③はポスター前半の古典技術で、数十行の信号処理が端末の中だけで動いています（通信は不要）。
+    一方、いまの大規模モデルをブラウザで動かすデモも公開されています（いずれも外部サイトへ移動します）。
+  </p>
+
+  <nav class="demos" aria-label="最新技術のデモ">
+    <a class="demo now" href="https://huggingface.co/collections/webml-community/transformersjs-v4-demos" target="_blank" rel="noopener">
+      <div class="topline">
+        <div class="name">
+          <span class="num">今</span>
+          <h3>ブラウザで動く大規模モデル</h3>
+        </div>
+        <span class="arrow" aria-hidden="true">›</span>
+      </div>
+      <p class="period">TRANSFORMERS.JS / WEBGPU</p>
+      <p class="desc">
+        音声認識・音声言語モデル・翻訳などを、大規模モデルをブラウザ上で動かして実行するデモ集。
+        ①〜③が数式そのものを動かしているのに対し、こちらは学習済みモデルを端末で推論させています。
+      </p>
+      <p class="warn">
+        <b>注意：</b>これらのデモは、実行前に<b>学習済みモデルを端末にダウンロードします（数百MB〜数GB）</b>。
+        通信量にご注意ください。また WebGPU 対応のブラウザ・端末が必要で、機種によっては動作しない、
+        あるいは途中で停止することがあります。会場の通信環境では読み込みに時間がかかるため、
+        <b>お帰りになってから Wi-Fi 環境でお試しいただくことをおすすめします</b>。
+      </p>
+      <div class="badges">
+        <span class="badge">Hugging Face webml-community</span>
+        <span class="badge">外部サイト</span>
+        <span class="badge">大容量DL</span>
+      </div>
+      <p class="ext">huggingface.co/collections/webml-community/transformersjs-v4-demos</p>
+    </a>
+
+    <a class="demo now" href="https://youtu.be/hm2IJSKcYvo" target="_blank" rel="noopener">
+      <div class="topline">
+        <div class="name">
+          <span class="num">今</span>
+          <h3>full-duplex 音声対話（Moshi）</h3>
+        </div>
+        <span class="arrow" aria-hidden="true">›</span>
+      </div>
+      <p class="period">SPEECH LANGUAGE MODEL</p>
+      <p class="desc">
+        聞きながら話す・相槌を打つ・割り込む——会話の時間構造そのものを扱うモデルのデモ動画。
+        ポスター⑤で触れている相互作用する音声の実例です。
+      </p>
+      <div class="badges">
+        <span class="badge">Kyutai 公式チャンネル</span>
+        <span class="badge">動画</span>
+      </div>
+      <p class="ext">youtu.be/hm2IJSKcYvo</p>
+    </a>
+  </nav>
+
   <aside class="note">
     <b>スマートフォンでの利用：</b>
     ②・③はマイクの使用許可が必要です。録音・分析はブラウザ内で行われます。
-    GitHub Pages は HTTPS で公開できるため、マイクを使う Web Audio デモの公開先として利用できます。
+    ①〜③は録音した音声を端末の外に送りません（モデルのダウンロードもありません）。
+    「いまの音声技術を触る」の各リンクは外部サイトで、内容は各公開元に帰属します。
+    大規模モデルのデモは<b>端末へ大容量のモデルをダウンロード</b>するため、通信環境にご注意ください。
   </aside>
 
   <footer class="foot">
