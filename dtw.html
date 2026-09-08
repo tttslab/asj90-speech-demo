@@ -65,6 +65,11 @@
   .score.best .fill{background:var(--accent);} .score.best .nm{color:var(--accent);}
   .score .cv{font-variant-numeric:tabular-nums;font-size:12px;color:var(--ink-soft);min-width:46px;text-align:right;}
 
+  .bargrp{margin-top:14px;}
+  .barlab{font-size:13px;font-weight:700;color:var(--ink);margin-bottom:2px;}
+  .barlab span{font-weight:400;font-size:12px;color:var(--ink-soft);margin-left:8px;}
+  .barlab .usehere{color:#a9531f;font-weight:700;}
+  .bargrp svg{width:100%;height:auto;display:block;}
   .seg{display:flex;align-items:center;flex-wrap:wrap;gap:10px;}
   .seglab{font-size:14px;font-weight:700;color:var(--ink);}
   .segbtns{display:flex;gap:6px;}
@@ -94,11 +99,28 @@
       </div>
       <span class="segout" id="segout"></span>
     </div>
+    <div class="seg" style="margin-top:12px">
+      <span class="seglab">照合に使う特徴量</span>
+      <div class="segbtns" id="feat">
+        <button data-f="parcor">反射係数</button>
+        <button data-f="lpc">LPC 係数</button>
+        <button data-f="lpcc" class="on">LPC ケプストラム</button>
+      </div>
+    </div>
+    <div class="note" id="featNote" style="margin-top:8px"></div>
     <div class="note">
-      デモ①②と同じ管モデルの約束を使います。管 1 区間の長さから分析のサンプリング周波数
-      <b>fs = c / 2L</b> と <b>LPC 次数</b>（＝区間の境界の数）が決まり、そこから求めた
-      <b>LPC ケプストラム</b>を照合の特徴量にしています。<br>
-      設定を変えたら、テンプレートを登録し直してください（特徴量が変わるため）。
+      <b>今回使用する音響特徴量について。</b>
+      音声認識の特徴量には <b>MFCC</b>・<b>PLP</b>・<b>LPC 系</b>などがあり、MFCC が使われることが
+      多いものの、LPC 系が使われることもあります。ただし LPC を使う場合でも、
+      <b>連結音響管を意識してサンプリング周波数を決めることは通常しません</b>。
+      録音時のサンプリング周波数はそのままに、次数だけを選ぶのが普通です。<br>
+      このデモでは、デモ①②とのつながりを見せるために、あえてそこを揃えています。
+      管 1 区間の長さ L を決めると、「1 サンプルで音波が 1 区間を往復する」条件から
+      <b>fs = c / 2L</b> が決まり、区間の境界の数がそのまま <b>LPC 次数</b>になります。
+      この条件で LPC 分析すると、反射係数・LPC 係数・LPC ケプストラムが得られます。
+      どれを照合に使うかは上のスイッチで選べます（既定は LPC ケプストラム）。
+      いずれもデモ②で推定した反射係数と、同じ分析から出てくる量です。<br>
+      <b>設定を変えると特徴量が変わるため、テンプレートは登録し直しになります。</b>
     </div>
   </div>
 
@@ -120,6 +142,24 @@
       <div class="cap">いちばん近いテンプレート（DTW正規化コスト最小）</div>
       <div class="scores" id="scores"></div>
     </div>
+  </div>
+
+  <div class="card" id="shapeCard" style="display:none">
+    <h2>テスト音声の分析結果 <small>照合に使った音から推定した声道の形と、3 つの係数（①→②→③の順に変換）</small></h2>
+    <canvas id="tract" height="150"></canvas>
+    <div class="bargrp">
+      <div class="barlab">① 反射係数（PARCOR）<span>管の各境界。上の形はこれを積み上げたもの</span><span class="usehere" id="useK"></span></div>
+      <svg id="kbars" xmlns="http://www.w3.org/2000/svg"></svg>
+    </div>
+    <div class="bargrp">
+      <div class="barlab">② LPC 係数<span>同じ分析から得られる全極フィルタの係数（反射係数と相互変換できる）</span><span class="usehere" id="useA"></span></div>
+      <svg id="abars" xmlns="http://www.w3.org/2000/svg"></svg>
+    </div>
+    <div class="bargrp">
+      <div class="barlab">③ LPC ケプストラム<span class="usehere" id="useC"></span></div>
+      <svg id="cbars" xmlns="http://www.w3.org/2000/svg"></svg>
+    </div>
+    <p class="desc" id="shapeMeta" style="margin-top:10px"></p>
   </div>
 
   <!-- dtw grid -->
@@ -175,15 +215,15 @@ function lpcFrame(f,p){
   const W=f.length, R=new Float64Array(p+1);
   for(let l=0;l<=p;l++){ let s=0; for(let n=l;n<W;n++) s+=f[n]*f[n-l]; R[l]=s; }
   if(R[0]<1e-12) return null;
-  const a=new Float64Array(p+1); a[0]=1; let E=R[0];
+  const a=new Float64Array(p+1); a[0]=1; let E=R[0]; const K=[];
   for(let i=1;i<=p;i++){
     let acc=R[i]; for(let j=1;j<i;j++) acc+=a[j]*R[i-j];
     const k=-acc/E; const an=Float64Array.from(a);
     for(let j=1;j<i;j++) an[j]=a[j]+k*a[i-j];
-    an[i]=k; a.set(an); E*=(1-k*k);
+    an[i]=k; a.set(an); E*=(1-k*k); K.push(k);
     if(E<=1e-12) return null;
   }
-  return {a,E};
+  return {a,E,K};
 }
 // LPC coefficients -> LPC cepstrum c[1..nc]  (recursion from the all-pole model)
 function lpcCepstrum(a,p,nc){
@@ -196,7 +236,13 @@ function lpcCepstrum(a,p,nc){
   }
   return c;
 }
-// front-end: LPC cepstrum at the tube-derived rate/order (replaces MFCC)
+let FEAT='lpcc';   // 'parcor' | 'lpc' | 'lpcc'
+const FEAT_NOTE={
+  parcor:'<b>反射係数（PARCOR）。</b>−1〜1 に収まり、量子化に強く安定判定も容易なため伝送・符号化で使われました。ただし ±1 に近いほど同じ差がスペクトルに大きく効く（感度が一様でない）ので、素朴なユークリッド距離は音の近さをうまく表しません。静かな環境で同一話者なら動きますが、照合用の特徴量として使うのは一般的ではありません。',
+  lpc:'<b>LPC 係数。</b>全極フィルタの分母多項式の係数そのものです。係数の小さな差が極の位置に非線形に効き、次元ごとの意味も揃わないため、距離計算には向きません。音を作る（合成する）ためのパラメータであって、比べるための表現ではない、と考えると分かりやすいです。',
+  lpcc:'<b>LPC ケプストラム。</b>スペクトル包絡の対数を滑らかに展開した量で、次元ごとの重みが揃い、ユークリッド距離が音色の違いとよく対応します。平均を引くだけで録音環境の癖もある程度打ち消せます（CMN）。照合にはこれが標準的です。'
+};
+// front-end: features derived from LPC at the tube-derived rate/order
 function lpccFeat(x,fs,p){
   const Nf=Math.round(0.025*fs),hop=Math.round(0.010*fs),nc=12;
   if(Nf<p+8) return [];
@@ -212,9 +258,11 @@ function lpccFeat(x,fs,p){
     for(let n=0;n<Nf;n++){ const v=pe[st+n]*win[n]; f[n]=v; e+=v*v; }
     const r=lpcFrame(f,p);
     if(!r){ continue; }
-    const c=lpcCepstrum(r.a,p,nc);
-    for(let i=0;i<nc;i++) c[i]*=lifter[i];
-    frames.push(c); energies.push(Math.log(e+1e-9));
+    let v;
+    if(FEAT==='parcor'){ v=Float64Array.from(r.K); }
+    else if(FEAT==='lpc'){ v=Float64Array.from(r.a.slice(1)); }
+    else { v=lpcCepstrum(r.a,p,nc); for(let i=0;i<nc;i++) v[i]*=lifter[i]; }
+    frames.push(v); energies.push(Math.log(e+1e-9));
   }
   if(!frames.length) return [];
   const mx=Math.max(...energies),thr=mx-4.0;
@@ -222,9 +270,12 @@ function lpccFeat(x,fs,p){
   while(s0<frames.length&&energies[s0]<thr)s0++;
   while(ec>s0&&energies[ec]<thr)ec--;
   let sel=frames.slice(s0,ec+1); if(sel.length<3) sel=frames;
-  const dim=nc,mean=new Float64Array(dim);
-  for(const fr of sel) for(let d=0;d<dim;d++) mean[d]+=fr[d]/sel.length;
-  return sel.map(fr=>Array.from(fr,(v,d)=>v-mean[d]));   // cepstral mean normalisation
+  const dim=sel[0].length,mean=new Float64Array(dim);
+  if(FEAT==='lpcc'){   // cepstral mean normalisation (only meaningful for cepstra)
+    for(const fr of sel) for(let d=0;d<dim;d++) mean[d]+=fr[d]/sel.length;
+    return sel.map(fr=>Array.from(fr,(v,d)=>v-mean[d]));
+  }
+  return sel.map(fr=>Array.from(fr));
 }
 function mfcc(x,fs){
   const Nf=Math.round(0.025*fs),hop=Math.round(0.010*fs),NFFT=nextPow2(Nf),nfilt=26,ncep=12;
@@ -288,6 +339,9 @@ function energyRMS(x){let e=0;for(let i=0;i<x.length;i++)e+=x[i]*x[i];return Mat
 const DEFAULT=['いち','に','さん','よん'];
 let templates=[]; // {label, frames}
 function load(){ try{const s=localStorage.getItem('dtw_tpl');if(s)templates=JSON.parse(s);
+                     const ff=localStorage.getItem('dtw_feat');
+                     if(ff){ FEAT=ff; document.querySelectorAll('#feat button').forEach(b=>
+                       b.classList.toggle('on',b.dataset.f===FEAT)); }
                      const g=localStorage.getItem('dtw_lseg');
                      if(g){ LSEG=parseFloat(g);
                        document.querySelectorAll('#seglen button').forEach(b=>
@@ -295,7 +349,7 @@ function load(){ try{const s=localStorage.getItem('dtw_tpl');if(s)templates=JSON
                    }catch(e){} 
   if(!templates.length) templates=DEFAULT.map(l=>({label:l,frames:null})); }
 function save(){ try{localStorage.setItem('dtw_tpl',JSON.stringify(templates));
-                     localStorage.setItem('dtw_lseg',String(LSEG));}catch(e){} }
+                     localStorage.setItem('dtw_lseg',String(LSEG)); localStorage.setItem('dtw_feat',FEAT);}catch(e){} }
 function updateSegOut(){
   const so=document.getElementById('segout');
   if(so) so.textContent=`→ 管 ${segCount()} 区間・境界 ${lpcOrder()} 個 ＝ LPC 次数 ${lpcOrder()} ／ 分析 fs ${fsModel()} Hz`;
@@ -333,6 +387,95 @@ function enroll(idx,btn){
 $('clearAll').addEventListener('click',()=>{ templates=DEFAULT.map(l=>({label:l,frames:null}));save();refresh();$('result').style.display='none';drawGrid(null);});
 
 // ================= test / recognize =================
+// ---- vocal-tract view of the test utterance (same maths as demo 2) ----
+function svgEl(n,a){const e=document.createElementNS('http://www.w3.org/2000/svg',n);for(const k in a)e.setAttribute(k,a[k]);return e;}
+function rampColor(t){const c1=[169,83,31],c2=[44,85,144];
+  return `rgb(${Math.round(c1[0]+(c2[0]-c1[0])*t)},${Math.round(c1[1]+(c2[1]-c1[1])*t)},${Math.round(c1[2]+(c2[2]-c1[2])*t)})`;}
+function reflFromFrame(x,fs,p){
+  // pick the highest-energy frame, then Levinson-Durbin -> PARCOR (k_i)
+  const W=Math.round(0.030*fs); if(x.length<W+2||W<p+8) return null;
+  let best=-1,st=0;
+  for(let i=0;i+W<x.length;i+=Math.floor(W/4)){let e=0;for(let n=0;n<W;n++)e+=x[i+n]*x[i+n];if(e>best){best=e;st=i;}}
+  const f=new Float64Array(W);
+  for(let n=0;n<W;n++){const w=0.54-0.46*Math.cos(2*Math.PI*n/(W-1));
+    f[n]=(x[st+n]-0.97*(x[st+n-1]||0))*w;}
+  const R=new Float64Array(p+1);
+  for(let l=0;l<=p;l++){let s=0;for(let n=l;n<W;n++)s+=f[n]*f[n-l];R[l]=s;}
+  if(R[0]<1e-12) return null;
+  const a=new Float64Array(p+1);a[0]=1;let E=R[0];const K=[];
+  for(let i=1;i<=p;i++){
+    let acc=R[i];for(let j=1;j<i;j++)acc+=a[j]*R[i-j];
+    const k=-acc/E;K.push(k);
+    const an=Float64Array.from(a);
+    for(let j=1;j<i;j++)an[j]=a[j]+k*a[i-j];
+    an[i]=k;a.set(an);E*=(1-k*k);
+    if(E<=1e-12) return null;
+  }
+  return {K, a, p};
+}
+function areaFromK(K){   // lips -> glottis, then reversed for display
+  let A=1.0;const As=[1.0];
+  for(const k of K){ A*=(1-(-k))/(1+(-k)); As.push(Math.max(A,1e-4)); }
+  return As.reverse();
+}
+function drawBars(id,V,sym){
+  const svg=$(id); if(!svg) return;
+  while(svg.firstChild) svg.removeChild(svg.firstChild);
+  const n=V.length,W2=1000,H2=132,padL=26,padR=14,mid=64,half=38;
+  svg.setAttribute('viewBox',`0 0 ${W2} ${H2}`);
+  const iw=(W2-padL-padR)/n,bw=Math.max(3,Math.min(26,iw*0.62));
+  svg.appendChild(svgEl('line',{x1:padL-6,y1:mid,x2:W2-padR+6,y2:mid,stroke:'#cfc4b1','stroke-width':'1.4'}));
+  const amax=Math.max(...V.map(Math.abs),1e-6);
+  const nice=Math.pow(10,Math.floor(Math.log10(amax)));
+  const vmax=Math.ceil(amax/nice*2)/2*nice;
+  const step=Math.max(1,Math.ceil(n/12));
+  for(let i=0;i<n;i++){
+    const cx=padL+iw*(i+0.5),mag=Math.min(1,Math.abs(V[i])/vmax),hg=Math.max(1.5,mag*half);
+    svg.appendChild(svgEl('rect',{x:cx-bw/2,y:V[i]>=0?mid-hg:mid,width:bw,height:hg,rx:'2',
+                                  fill:rampColor((i+0.5)/Math.max(1,n-1))}));
+    if(i===0||i===n-1||i%step===0){
+      const t=svgEl('text',{x:cx,y:H2-16,'font-size':'12.5',fill:'#182a38','text-anchor':'middle','font-weight':'700'});
+      t.textContent=sym+(i+1); svg.appendChild(t);
+      const v=svgEl('text',{x:cx,y:H2-3,'font-size':'11',fill:'#6a7480','text-anchor':'middle'});
+      v.textContent=Math.abs(V[i])>=10?V[i].toFixed(1):V[i].toFixed(2); svg.appendChild(v);
+    }
+  }
+  const sc=svgEl('text',{x:padL,y:13,'font-size':'11.5',fill:'#8a8172'});
+  sc.textContent=`${n} 次元（縦軸 ±${vmax<1?vmax.toFixed(2):vmax.toFixed(1)}）`; svg.appendChild(sc);
+}
+function drawTractView(R){
+  const card=$('shapeCard');
+  if(!R||!R.K||!R.K.length){ card.style.display='none'; return; }
+  card.style.display='';
+  const K=R.K, A2=R.a, C2=Array.from(lpcCepstrum(R.a,R.p,12));
+  const A=areaFromK(K), mean=A.reduce((s,v)=>s+v,0)/A.length;
+  const An=A.map(v=>v/mean);
+  // tract outline
+  const cv=$('tract'),g=cv.getContext('2d');
+  const w=cv.clientWidth||700,h=150;cv.width=w*devicePixelRatio;cv.height=h*devicePixelRatio;
+  cv.style.height=h+'px';g.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
+  g.clearRect(0,0,w,h);
+  const pad=16,cy=h/2,mx=Math.max(...An),scale=(h/2-pad)/Math.sqrt(Math.max(mx,0.2));
+  const rad=An.map(v=>Math.sqrt(Math.max(v,0.02))*scale);
+  const gr=g.createLinearGradient(pad,0,w-pad,0);gr.addColorStop(0,'#a9531f');gr.addColorStop(1,'#2c5590');
+  g.beginPath();
+  rad.forEach((r,i)=>{const x=pad+(w-2*pad)*i/(rad.length-1);i?g.lineTo(x,cy-r):g.moveTo(x,cy-r);});
+  for(let i=rad.length-1;i>=0;i--){const x=pad+(w-2*pad)*i/(rad.length-1);g.lineTo(x,cy+rad[i]);}
+  g.closePath();g.fillStyle=gr;g.globalAlpha=.85;g.fill();g.globalAlpha=1;
+  g.strokeStyle='rgba(24,42,56,.35)';g.lineWidth=1.2;g.stroke();
+  g.fillStyle='#6a7480';g.font='12px sans-serif';
+  g.fillText('声門',pad,h-6);g.textAlign='right';g.fillText('唇',w-pad,h-6);g.textAlign='left';
+  const mark='← いま照合に使用';
+  $('useK').textContent = FEAT==='parcor'?mark:'';
+  $('useA').textContent = FEAT==='lpc'?mark:'';
+  $('useC').textContent = FEAT==='lpcc'?mark:'';
+  drawBars('kbars',K,'k');
+  drawBars('abars',Array.from(A2).slice(1),'a');
+  drawBars('cbars',C2,'c');
+  $('shapeMeta').innerHTML=`<b>上の声道の図と 3 つのグラフは、録音のうち最も声が大きい瞬間（30 ミリ秒）を切り出して分析した結果です。</b>`
+    +` DTW の照合には、10 ミリ秒ごとに切り出した全フレームの特徴量を時系列として使っています。`
+    +`<br>反射係数と LPC 係数はともに ${K.length} 次元（相互に変換できる同じ情報）、ケプストラムは 12 次元に打ち切っています。分析 fs ${fsModel()} Hz ／ 管 ${segCount()} 区間。`;
+}
 $('test').addEventListener('click',()=>{
   const btn=$('test');
   recordSamples(1.1,(buf)=>{
@@ -345,6 +488,7 @@ $('test').addEventListener('click',()=>{
     $('status').textContent='照合しました。';
     showResult(results);
     drawGrid(results[0].r);
+    drawTractView(reflFromFrame(resampleTo(buf,recSR,fsModel()),fsModel(),lpcOrder()));
   },(err)=>{ btn.classList.remove('rec'); $('status').textContent='マイクを使用できませんでした。'; },
   ()=>{ btn.classList.add('rec'); btn.textContent='● 録音中'; $('status').textContent='録音中…（登録した語を話す）'; });
 });
@@ -396,6 +540,17 @@ function drawGrid(R){
 
 window.addEventListener('resize',()=>drawGrid(window.__lastR||null));
 const _dg=drawGrid; drawGrid=function(R){window.__lastR=R;return _dg(R);};
+function updateFeatNote(){ const el=$('featNote'); if(el) el.innerHTML=FEAT_NOTE[FEAT]; }
+document.querySelectorAll('#feat button').forEach(btn=>btn.addEventListener('click',()=>{
+  if(btn.dataset.f===FEAT) return;
+  document.querySelectorAll('#feat button').forEach(b=>b.classList.toggle('on',b===btn));
+  FEAT=btn.dataset.f; updateFeatNote();
+  const had=templates.some(t=>t.frames&&t.frames.length);
+  templates.forEach(t=>t.frames=null); save(); refresh();
+  $('result').style.display='none'; drawGrid(null); $('shapeCard').style.display='none';
+  $('status').textContent = had ? '特徴量を変更しました。テンプレートを登録し直してください。'
+                                : '特徴量を変更しました。';
+}));
 document.querySelectorAll('#seglen button').forEach(btn=>btn.addEventListener('click',()=>{
   const mm=parseFloat(btn.dataset.mm);
   if(Math.abs(mm/1000-LSEG)<1e-9) return;
@@ -404,11 +559,12 @@ document.querySelectorAll('#seglen button').forEach(btn=>btn.addEventListener('c
   const had=templates.some(t=>t.frames&&t.frames.length);
   templates.forEach(t=>t.frames=null); save(); refresh();
   $('result').style.display='none'; drawGrid(null);
+  $('shapeCard').style.display='none';
   $('status').textContent = had
     ? `管 ${mm} mm（LPC 次数 ${lpcOrder()}／fs ${fsModel()} Hz）に変更しました。特徴量が変わるため、登録し直してください。`
     : `管 ${mm} mm（LPC 次数 ${lpcOrder()}／fs ${fsModel()} Hz）に設定しました。`;
 }));
-window.addEventListener('load',()=>{refresh();updateSegOut();drawGrid(null);});
+window.addEventListener('load',()=>{refresh();updateSegOut();updateFeatNote();drawGrid(null);});
 refresh();drawGrid(null);
 </script>
 </body>
