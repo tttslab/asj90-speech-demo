@@ -102,7 +102,7 @@
     <div class="seg" style="margin-top:12px">
       <span class="seglab">照合に使う特徴量</span>
       <div class="segbtns" id="feat">
-        <button data-f="parcor">反射係数</button>
+        <button data-f="parcor">PARCOR 係数</button>
         <button data-f="lpc">LPC 係数</button>
         <button data-f="lpcc" class="on">LPC ケプストラム</button>
       </div>
@@ -117,9 +117,9 @@
       このデモでは、デモ①②とのつながりを見せるために、あえてそこを揃えています。
       管 1 区間の長さ L を決めると、「1 サンプルで音波が 1 区間を往復する」条件から
       <b>fs = c / 2L</b> が決まり、区間の境界の数がそのまま <b>LPC 次数</b>になります。
-      この条件で LPC 分析すると、反射係数・LPC 係数・LPC ケプストラムが得られます。
+      この条件で LPC 分析すると、PARCOR 係数・LPC 係数・LPC ケプストラムが得られます。
       どれを照合に使うかは上のスイッチで選べます（既定は LPC ケプストラム）。
-      いずれもデモ②で推定した反射係数と、同じ分析から出てくる量です。<br>
+      いずれもデモ②で推定した PARCOR 係数と、同じ分析から出てくる量です。<br>
       <b>設定を変えると特徴量が変わるため、テンプレートは登録し直しになります。</b>
     </div>
   </div>
@@ -148,11 +148,11 @@
     <h2>テスト音声の分析結果 <small>照合に使った音から推定した声道の形と、3 つの係数（①→②→③の順に変換）</small></h2>
     <canvas id="tract" height="150"></canvas>
     <div class="bargrp">
-      <div class="barlab">① 反射係数（PARCOR）<span>管の各境界。上の形はこれを積み上げたもの</span><span class="usehere" id="useK"></span></div>
+      <div class="barlab">① PARCOR 係数 k<sub>m</sub> = −R<sub>m</sub><span>管の各境界（左が声門側 k<sub>P</sub>、右が唇側 k<sub>1</sub>）。上の形はこれを唇側から積み上げたもの</span><span class="usehere" id="useK"></span></div>
       <svg id="kbars" xmlns="http://www.w3.org/2000/svg"></svg>
     </div>
     <div class="bargrp">
-      <div class="barlab">② LPC 係数<span>同じ分析から得られる全極フィルタの係数（反射係数と相互変換できる）</span><span class="usehere" id="useA"></span></div>
+      <div class="barlab">② LPC 係数<span>同じ分析から得られる全極フィルタの係数（PARCOR 係数と相互変換できる）</span><span class="usehere" id="useA"></span></div>
       <svg id="abars" xmlns="http://www.w3.org/2000/svg"></svg>
     </div>
     <div class="bargrp">
@@ -238,7 +238,7 @@ function lpcCepstrum(a,p,nc){
 }
 let FEAT='lpcc';   // 'parcor' | 'lpc' | 'lpcc'
 const FEAT_NOTE={
-  parcor:'<b>反射係数（PARCOR）。</b>−1〜1 に収まり、量子化に強く安定判定も容易なため伝送・符号化で使われました。ただし ±1 に近いほど同じ差がスペクトルに大きく効く（感度が一様でない）ので、素朴なユークリッド距離は音の近さをうまく表しません。静かな環境で同一話者なら動きますが、照合用の特徴量として使うのは一般的ではありません。',
+  parcor:'<b>PARCOR 係数（境界の反射係数の符号を反転したもの）。</b>−1〜1 に収まり、量子化に強く安定判定も容易なため伝送・符号化で使われました。ただし ±1 に近いほど同じ差がスペクトルに大きく効く（感度が一様でない）ので、素朴なユークリッド距離は音の近さをうまく表しません。静かな環境で同一話者なら動きますが、照合用の特徴量として使うのは一般的ではありません。',
   lpc:'<b>LPC 係数。</b>全極フィルタの分母多項式の係数そのものです。係数の小さな差が極の位置に非線形に効き、次元ごとの意味も揃わないため、距離計算には向きません。音を作る（合成する）ためのパラメータであって、比べるための表現ではない、と考えると分かりやすいです。',
   lpcc:'<b>LPC ケプストラム。</b>スペクトル包絡の対数を滑らかに展開した量で、次元ごとの重みが揃い、ユークリッド距離が音色の違いとよく対応します。平均を引くだけで録音環境の癖もある程度打ち消せます（CMN）。照合にはこれが標準的です。'
 };
@@ -413,12 +413,15 @@ function reflFromFrame(x,fs,p){
   }
   return {K, a, p};
 }
-function areaFromK(K){   // lips -> glottis, then reversed for display
+// k_m = -R_m, R_m = (S_m - S_{m-1})/(S_m + S_{m-1}), junctions numbered from the LIPS (m = 1..P)
+// => S_m = S_{m-1} (1 - k_m)/(1 + k_m).  Built lips -> glottis, then reversed for display (glottis -> lips).
+function areaFromK(K){
   let A=1.0;const As=[1.0];
-  for(const k of K){ A*=(1-(-k))/(1+(-k)); As.push(Math.max(A,1e-4)); }
+  for(const k of K){ A*=(1-k)/(1+k); As.push(Math.max(A,1e-4)); }
   return As.reverse();
 }
-function drawBars(id,V,sym){
+function drawBars(id,V,sym,glottisFirst){
+  if(glottisFirst) V=V.slice().reverse();
   const svg=$(id); if(!svg) return;
   while(svg.firstChild) svg.removeChild(svg.firstChild);
   const n=V.length,W2=1000,H2=132,padL=26,padR=14,mid=64,half=38;
@@ -435,7 +438,7 @@ function drawBars(id,V,sym){
                                   fill:rampColor((i+0.5)/Math.max(1,n-1))}));
     if(i===0||i===n-1||i%step===0){
       const t=svgEl('text',{x:cx,y:H2-16,'font-size':'12.5',fill:'#182a38','text-anchor':'middle','font-weight':'700'});
-      t.textContent=sym+(i+1); svg.appendChild(t);
+      t.textContent=sym+(glottisFirst?n-i:i+1); svg.appendChild(t);
       const v=svgEl('text',{x:cx,y:H2-3,'font-size':'11',fill:'#6a7480','text-anchor':'middle'});
       v.textContent=Math.abs(V[i])>=10?V[i].toFixed(1):V[i].toFixed(2); svg.appendChild(v);
     }
@@ -469,12 +472,12 @@ function drawTractView(R){
   $('useK').textContent = FEAT==='parcor'?mark:'';
   $('useA').textContent = FEAT==='lpc'?mark:'';
   $('useC').textContent = FEAT==='lpcc'?mark:'';
-  drawBars('kbars',K,'k');
+  drawBars('kbars',K,'k',true);   // aligned with the tract: k_P (glottis) ... k_1 (lips)
   drawBars('abars',Array.from(A2).slice(1),'a');
   drawBars('cbars',C2,'c');
   $('shapeMeta').innerHTML=`<b>上の声道の図と 3 つのグラフは、録音のうち最も声が大きい瞬間（30 ミリ秒）を切り出して分析した結果です。</b>`
     +` DTW の照合には、10 ミリ秒ごとに切り出した全フレームの特徴量を時系列として使っています。`
-    +`<br>反射係数と LPC 係数はともに ${K.length} 次元（相互に変換できる同じ情報）、ケプストラムは 12 次元に打ち切っています。分析 fs ${fsModel()} Hz ／ 管 ${segCount()} 区間。`;
+    +`<br>PARCOR 係数と LPC 係数はともに ${K.length} 次元（相互に変換できる同じ情報）、ケプストラムは 12 次元に打ち切っています。分析 fs ${fsModel()} Hz ／ 管 ${segCount()} 区間。`;
 }
 $('test').addEventListener('click',()=>{
   const btn=$('test');

@@ -102,7 +102,7 @@
   <a class="back" href="./index.html">← デモ一覧</a>
   <p class="eyebrow">音声技術今昔物語 · 声道を測る時代 · Kelly–Lochbaum</p>
   <h1><span class="n">①</span> 連結音響管シンセ</h1>
-  <p class="sub">各管の半径を変えて母音をつくる — 境界の反射係数がそのまま PARCOR。</p>
+  <p class="sub">各管の半径を変えて母音をつくる — 境界の反射係数がそのまま PARCOR 係数になる（k<sub>m</sub> = −R<sub>m</sub>）。</p>
 
   <div class="card">
     <h2>モデルの前提 <small>管の長さ・音速・声道長から、サンプリング周波数が決まります</small></h2>
@@ -114,7 +114,7 @@
     </div>
     <div class="formula" id="fsline"></div>
     <div class="eqn">
-      区間の内側の境界の数がそのままフィルタの段数 P になります。上の「声道の形」の点線、その下のバー、回路図の段は、つねに同じ境界を表しています。
+      区間の内側の境界の数がそのままフィルタの段数 P になります。境界は<b>唇側から 1, 2, …, P</b> と数えます。上の「声道の形」の点線、その下のバー、回路図の段は、つねに同じ境界を表しています。
       管を短くすれば段数と fs はともに増え、より細かい形状と広い帯域を扱えます。
     </div>
     <div class="seg">
@@ -149,9 +149,15 @@
     <h2>使用しているフィルタ回路 <small>PARCOR 合成フィルタ（格子型）— この回路がそのまま音を作っています</small></h2>
     <svg id="fcirc" class="fcirc" viewBox="0 0 720 240" xmlns="http://www.w3.org/2000/svg"></svg>
     <div class="eqn">
-      境界の反射係数 <b>R<sub>m</sub> = (A<sub>m</sub> − A<sub>m+1</sub>)/(A<sub>m</sub> + A<sub>m+1</sub>)</b>（A＝断面積）を
-      <b>k<sub>m</sub></b> として各段に与え、上段（前向き）と下段（後ろ向き＝1 サンプル遅延 z⁻¹）の 2 本のレールを交差させています。
-      唇側の出力が z⁻¹ で下段へ折り返す閉ループが、口の開放端（完全反射）に対応します。
+      唇側から数えて m 番目の境界の反射係数を
+      <b>R<sub>m</sub> = (S<sub>m</sub> − S<sub>m−1</sub>)/(S<sub>m</sub> + S<sub>m−1</sub>)</b>
+      （S＝断面積。S<sub>m</sub> がその境界の声門側、S<sub>m−1</sub> が唇側。音圧波の反射係数）とし、
+      <b>k<sub>m</sub> = −R<sub>m</sub></b> を各段に与えています。段 1 が唇側（出力側）です。
+      上段（前向き）と下段（後ろ向き＝1 サンプル遅延 z⁻¹）の 2 本のレールを交差させ、
+      唇側の出力を z⁻¹ で下段へ折り返す閉ループが唇端に対応します
+      （開いた唇での音圧の反射 −1 は、k<sub>m</sub> = −R<sub>m</sub> の符号に含まれています）。
+      この回路は合成フィルタ 1/A(z)，A(z) = 1 + a<sub>1</sub>z<sup>−1</sup> + … + a<sub>P</sub>z<sup>−P</sup> を実現するもので、
+      記号と符号は日本音響学会誌の記事の付録と同じです。
       管 1 区間を <b>1 cm</b> とすると、1 サンプルで音波が 1 区間を往復する条件から合成レートは
       <b>c / 2L = 17150 Hz</b> に決まります（音質より対応関係のわかりやすさを優先）。再生時のみ端末のレートへ変換しています。
     </div>
@@ -208,13 +214,14 @@
 <script>
 // ================= DSP: Kelly–Lochbaum / PARCOR lattice =================
 // vocal-tract shapes fitted so that F1/F2 match typical Japanese vowels
-// (optimised for the 17-section, 17150 Hz model used here)
+// (optimised for the 17-section, 17150 Hz model used here).
+// Radii of the 8 control points, listed from the glottis (left) to the lips (right), as drawn.
 const PRESETS = {
-  a:[1.12,1.26,1.29,0.92,0.48,0.44,0.60,0.37],   // F1 800  F2 1206
-  i:[0.48,0.29,0.43,0.75,0.91,0.80,0.54,0.61],   // F1 301  F2 2299
-  u:[0.37,1.07,1.00,0.71,0.68,0.78,0.85,0.76],   // F1 377  F2 1005
-  e:[0.74,0.78,0.89,1.03,1.10,0.99,0.80,0.77],   // F1 498  F2 1901
-  o:[0.59,1.25,1.42,0.95,0.42,0.68,0.95,0.63],   // F1 498  F2  909
+  a:[0.37,0.60,0.44,0.48,0.92,1.29,1.26,1.12],   // F1 800  F2 1206
+  i:[0.61,0.54,0.80,0.91,0.75,0.43,0.29,0.48],   // F1 301  F2 2299
+  u:[0.76,0.85,0.78,0.68,0.71,1.00,1.07,0.37],   // F1 377  F2 1005
+  e:[0.77,0.80,0.99,1.10,1.03,0.89,0.78,0.74],   // F1 498  F2 1901
+  o:[0.63,0.95,0.68,0.42,0.95,1.42,1.25,0.59],   // F1 498  F2  909
   n:[1,1,1,1,1,1,1,1],
 };
 const KDAMP=0.97, RMIN=0.15, RMAX=1.8;
@@ -229,8 +236,14 @@ function interpolateRadii(ctrl,M){const n=ctrl.length,out=new Float64Array(M);
     out[j]=Math.max(0.04,ctrl[lo]*(1-fr)+ctrl[hi]*fr);}return out;}
 function reflK(ctrl,M){const R=interpolateRadii(ctrl,M),A=[];for(let i=0;i<M;i++)A.push(R[i]*R[i]);
   const K=new Float64Array(M-1);for(let m=0;m<M-1;m++)K[m]=(A[m]-A[m+1])/(A[m]+A[m+1]);return K;}
-function ctrlParcor(ctrl){const A=ctrl.map(r=>r*r),Kc=[];
-  for(let i=0;i<ctrl.length-1;i++)Kc.push((A[i]-A[i+1])/(A[i]+A[i+1]));return Kc;}
+// Conventions (same as the ASJ journal article appendix and Markel & Gray):
+//  junctions are numbered m = 1..P from the LIPS;
+//  R_m = (S_m - S_{m-1}) / (S_m + S_{m-1}), S_m = glottis-side area (pressure-wave reflection coeff.);
+//  PARCOR k_m = -R_m, lattice stage m = 1 is the output (lip) side, A(z) = 1 + a_1 z^-1 + ... + a_P z^-P.
+// reflK() returns R in DRAWING order (glottis -> lips): element i is junction m = P - i.
+// parcorK() returns k in LATTICE order: element m-1 is k_m = -R_m.
+function parcorK(ctrl,M){const R=reflK(ctrl,M),P=R.length,k=new Float64Array(P);
+  for(let m=1;m<=P;m++)k[m-1]=-R[P-m];return k;}
 function rosenberg(ph){const Tp=0.4,Tn=0.16;
   if(ph<Tp)return 0.5*(1-Math.cos(Math.PI*ph/Tp));
   if(ph<Tp+Tn)return Math.cos(Math.PI*(ph-Tp)/(2*Tn));return 0;}
@@ -246,7 +259,7 @@ function setSegLen(mm){
 function sectionsFor(fs){return Math.max(4,Math.round(VTLEN/LSEG));}  // segments; junctions = segments-1
 
 function synth(ctrl,fs,dur,f0,src){
-  const M=sectionsFor(fs), K=reflK(ctrl,M), p=K.length, Ku=K.map(k=>k*KDAMP);
+  const M=sectionsFor(fs), K=parcorK(ctrl,M), p=K.length, Ku=K.map(k=>k*KDAMP);
   const N=Math.round(fs*dur); const out=new Float32Array(N);
   let b=new Float64Array(p+1),bn=new Float64Array(p+1),ph=0,prev=0;const dph=f0/fs;
   for(let n=0;n<N;n++){
@@ -262,7 +275,7 @@ function synth(ctrl,fs,dur,f0,src){
 }
 // impulse response transfer function (for the live spectrum)
 function impulseResponse(ctrl,fs,NF){
-  const M=sectionsFor(fs),K=reflK(ctrl,M),p=K.length,Ku=K.map(k=>k*KDAMP);
+  const M=sectionsFor(fs),K=parcorK(ctrl,M),p=K.length,Ku=K.map(k=>k*KDAMP);
   let b=new Float64Array(p+1),bn=new Float64Array(p+1),prev=0;const out=new Float64Array(NF);
   for(let n=0;n<NF;n++){let u=(n===0)?1:0,f=u;
     for(let m=p;m>=1;m--){const kk=Ku[m-1],bm1=b[m-1];f=f-kk*bm1;bn[m]=kk*f+bm1;}
@@ -390,7 +403,7 @@ function drawCircuit(){
   const svg=document.getElementById('fcirc'); if(!svg) return;
   while(svg.firstChild) svg.removeChild(svg.firstChild);
   const M=sectionsFor(FS_MODEL);                 // model points
-  const Kc=Array.from(reflK(radii,M));           // ACTUAL reflection coefficients used by synth
+  const Kc=Array.from(parcorK(radii,M));         // ACTUAL PARCOR coefficients used by synth (k_1 = lip side)
   const Ku=Kc.map(k=>k*KDAMP);                   // with stabilising damping
   const W=1180,H=330,yT=96,yB=232,x0=52,x1=1108;
   svg.setAttribute('viewBox','0 0 1180 330');
@@ -416,7 +429,7 @@ function drawCircuit(){
     const up = (i%2===0);
     const ly = up ? (yT+yB)/2-12 : (yT+yB)/2+22;
     const kl=el('text',{x:(sx+cx)/2,y:ly,'font-size':'17',fill:col,'font-weight':'700','text-anchor':'middle'});
-    kl.textContent='k'+(i+1); svg.appendChild(kl);
+    kl.textContent='k'+(n-i); svg.appendChild(kl);   // drawn glottis->lips: k_P ... k_1
 
     if(i<n-1){
       const zx=cx+dx*0.46;
@@ -452,7 +465,7 @@ function drawCircuit(){
   const ts=document.getElementById('tubesub');
   if(ts) ts.textContent=`声門（左）→ 唇（右）／${LSEG*1000} mm の管 ${segs} 区間・境界 ${segs-1} 個（点線）`;
   document.getElementById('ktable').innerHTML=
-    Ku.map((k,i)=>`<div class="kchip"><div class="kn">k${i+1}（境界 ${i+1}）</div><div class="kv">${k.toFixed(3)}</div></div>`).join('');
+    Ku.map((k,i)=>`<div class="kchip"><div class="kn">k${i+1}（唇側から境界 ${i+1}）</div><div class="kv">${k.toFixed(3)}</div></div>`).join('');
 }
 
 function drawParcor(){
@@ -479,7 +492,7 @@ function drawParcor(){
     const show=(i===0||i===n-1||i%step===0);
     if(show){
       const t=el('text',{x:cx,y:H-18,'font-size':'13',fill:'#182a38','text-anchor':'middle','font-weight':'700'});
-      t.textContent='R'+(i+1); svg.appendChild(t);
+      t.textContent='R'+(n-i); svg.appendChild(t);   // junctions numbered from the lips
       const v=el('text',{x:cx,y:H-4,'font-size':'11.5',fill:'#6a7480','text-anchor':'middle'});
       v.textContent=K[i].toFixed(2); svg.appendChild(v);
     }
@@ -489,23 +502,6 @@ function drawParcor(){
   const sc=el('text',{x:padL+70,y:top-4,'font-size':'11.5',fill:'#8a8172'});
   sc.textContent=`縦軸 ±${vmax.toFixed(1)}`; svg.appendChild(sc);
   return;
-}
-function drawParcorOld(){
-  const Kc=Array.from(reflK(radii,sectionsFor(FS_MODEL))); const box=document.getElementById('parcor'); box.innerHTML='';
-  Kc.forEach((k,i)=>{
-    const pc=document.createElement('div');pc.className='pc';
-    const bar=document.createElement('div');bar.className='pcbar';
-    const zero=document.createElement('div');zero.className='zero';
-    const bi=document.createElement('i');
-    const mag=Math.min(1,Math.abs(k)); const hgt=Math.round(mag*20);
-    bi.style.height=hgt+'px';
-    bi.style.background=rampColor((i+0.5)/Math.max(1,Kc.length-1));
-    bi.style.marginTop=(k>=0? (20-hgt) : 20)+'px'; // above zero if +, below if -
-    bar.appendChild(zero);bar.appendChild(bi);
-    const kv=document.createElement('div');kv.className='k';kv.textContent='R'+(i+1);
-    const vv=document.createElement('div');vv.className='v';vv.textContent=k.toFixed(2);
-    pc.appendChild(bar);pc.appendChild(kv);pc.appendChild(vv);box.appendChild(pc);
-  });
 }
 
 function drawSpec(){

@@ -89,7 +89,7 @@
   <a class="back" href="./index.html">← デモ一覧</a>
   <p class="eyebrow">音声技術今昔物語 · LPC / PARCOR の時代</p>
   <h1><span class="n">②</span> 自分の声から声道モデル</h1>
-  <p class="sub">声を録音 → LPCで反射係数（PARCOR）を推定 → 同じ管モデルで再合成。</p>
+  <p class="sub">声を録音 → LPC で PARCOR 係数 k<sub>m</sub>（= −R<sub>m</sub>）を推定 → 声道の断面積を復元 → 同じ管モデルで再合成。</p>
 
   <!-- record -->
   <div class="card">
@@ -120,7 +120,7 @@
 
   <!-- estimated tract -->
   <div class="card">
-    <h2>推定された声道の形 <small>あなたの声から立ち上がった断面積関数（声門→唇）／縦は相対値</small></h2>
+    <h2>推定された声道の形 <small>あなたの声から立ち上がった断面積関数（声門→唇）／唇側から S<sub>m</sub> = S<sub>m−1</sub>(1 − k<sub>m</sub>)/(1 + k<sub>m</sub>) で求めた相対値</small></h2>
     <canvas id="tube"></canvas>
     <div class="parcor" id="parcor"></div>
   </div>
@@ -228,6 +228,8 @@ function synthK(K,fs,dur,f0,gain,voiced,src){
   for(let n=0;n<N;n++){let a=1;if(n<fd)a=n/fd;else if(n>N-fd)a=(N-n)/fd;out[n]*=g*a;}
   return out;
 }
+// k_m = -R_m, R_m = (S_m - S_{m-1})/(S_m + S_{m-1}), junctions numbered from the LIPS (m = 1..P)
+// => S_m = S_{m-1} (1 - k_m)/(1 + k_m).  Returned array runs LIPS (S_0) -> GLOTTIS (S_P).
 function areaFromK(K){let A=1;const As=[1];for(let m=0;m<K.length;m++){A*=(1-K[m])/(1+K[m]);As.push(Math.max(A,1e-4));}
   const mx=Math.max(...As);return As.map(a=>Math.sqrt(a/mx));}
 function fft(re,im){const n=re.length;for(let i=1,j=0;i<n;i++){let bit=n>>1;for(;j&bit;bit>>=1)j^=bit;j^=bit;
@@ -291,7 +293,7 @@ function reanalyze(){
   const dec=resampleTo(rawRec,recSR,fsW);
   an=analyze(dec,fsW,p);
   if(!an){ setStatus('録音が短すぎます。'); return; }
-  $('meta').innerHTML=`分析 fs <b>${fsW} Hz</b> ・ 次数 <b>${p}</b> ・ 推定 f₀ <b>${an.f0.toFixed(0)} Hz</b> ・ 判定 <b>${an.voiced?'有声':'無声'}</b> ・ 反射係数 <b>${an.K.length}</b> 個`;
+  $('meta').innerHTML=`分析 fs <b>${fsW} Hz</b> ・ 次数 <b>${p}</b> ・ 推定 f₀ <b>${an.f0.toFixed(0)} Hz</b> ・ 判定 <b>${an.voiced?'有声':'無声'}</b> ・ PARCOR 係数 <b>${an.K.length}</b> 個`;
   render();
 }
 function playBuf(data, sr){
@@ -317,7 +319,7 @@ function fitCanvas(cv){const r=cv.getBoundingClientRect(),dpr=window.devicePixel
 function drawTube(){
   const {g,w,h}=fitCanvas($('tube')); g.clearRect(0,0,w,h);
   if(!an){ g.fillStyle='#a9997d';g.font='13px sans-serif';g.fillText('録音すると、声から推定した声道の形が表示されます',14,h/2); return; }
-  const R=areaFromK(an.K), M=R.length, cy=h/2, pad=10, mx=Math.max(...R), scale=(h/2-pad)/(mx*1.05);
+  const R=areaFromK(an.K).slice().reverse(), M=R.length, cy=h/2, pad=10, mx=Math.max(...R), scale=(h/2-pad)/(mx*1.05);   // draw glottis (left) -> lips (right)
   g.beginPath(); g.moveTo(pad,cy-R[0]*scale);
   for(let i=0;i<M;i++){const x=pad+(w-2*pad)*i/(M-1);g.lineTo(x,cy-R[i]*scale);}
   for(let i=M-1;i>=0;i--){const x=pad+(w-2*pad)*i/(M-1);g.lineTo(x,cy+R[i]*scale);}
@@ -329,7 +331,8 @@ function drawTube(){
 function drawParcor(){
   const box=$('parcor'); box.innerHTML='';
   if(!an) return;
-  an.K.forEach((k,i)=>{
+  const P=an.K.length;
+  an.K.slice().reverse().forEach((k,i)=>{            // drawn glottis -> lips: k_P ... k_1
     const pc=document.createElement('div');pc.className='pc';
     const bar=document.createElement('div');bar.className='pcbar';
     const zero=document.createElement('div');zero.className='zero';
@@ -337,7 +340,7 @@ function drawParcor(){
     bi.style.height=hgt+'px';bi.style.background=rampColor(i/Math.max(1,an.K.length-1));
     bi.style.marginTop=(k>=0?(20-hgt):20)+'px';
     bar.appendChild(zero);bar.appendChild(bi);
-    const kk=document.createElement('div');kk.className='k';kk.textContent='k'+(i+1);
+    const kk=document.createElement('div');kk.className='k';kk.textContent='k'+(P-i);
     pc.appendChild(bar);pc.appendChild(kk);box.appendChild(pc);
   });
 }
